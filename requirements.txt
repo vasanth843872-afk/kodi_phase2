@@ -1,0 +1,13 @@
+Django
+djangorestframework
+django-cors-headers
+psycopg2-binary
+python-decouple
+djangorestframework-simplejwt
+Pillow
+channels
+channels-redis
+daphne
+drf-yasg
+celery
+redis
