@@ -77,6 +77,8 @@ class AdminActivityLog(models.Model):
     user_agent = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
+    metadata = models.JSONField(null=True, blank=True, default=dict)
+    
     class Meta:
         verbose_name = "Activity Log"
         verbose_name_plural = "Activity Logs"
@@ -122,6 +124,8 @@ class RelationManagementPermission(models.Model):
     can_manage_language_religion = models.BooleanField(default=False)
     can_manage_caste_overrides = models.BooleanField(default=False)
     can_manage_family_overrides = models.BooleanField(default=False)
+    can_manage_profile_overrides = models.BooleanField(default=False)
+    
     can_view_relation_analytics = models.BooleanField(default=True)
     can_export_relation_data = models.BooleanField(default=False)
     
@@ -149,7 +153,7 @@ class RelationAdminActivityLog(models.Model):
     )
     
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
     description = models.TextField()
     relation_code = models.CharField(max_length=50, blank=True, null=True)
     affected_level = models.CharField(max_length=20, blank=True, null=True)
@@ -194,3 +198,5 @@ def create_default_relation_permissions(sender, instance, created, **kwargs):
                 )
         except StaffPermission.DoesNotExist:
             pass
+        
+

@@ -11,14 +11,13 @@ SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 DEBUG = True
 
 # ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['192.168.1.27', 'localhost', '127.0.0.1','10.102.132.67','10.84.132.67','10.54.5.67','10.63.59.67']
+ALLOWED_HOSTS = ['192.168.1.10','127.0.0.1']
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:30001",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "http://192.168.1.15:5173",
-    "http://192.168.1.27:8002",
-]
+    ]
 
 
 INSTALLED_APPS = [
@@ -34,6 +33,7 @@ INSTALLED_APPS = [
         'corsheaders',
         'channels',
         'drf_yasg',
+        'drf_spectacular',
         
         # Local apps
         'apps.accounts',
@@ -43,7 +43,8 @@ INSTALLED_APPS = [
         'apps.genealogy',
         'apps.chat',
         'apps.posts',
-        'admin_app'
+        'admin_app',
+        'django_extensions',
     ]
 
 MIDDLEWARE = [
@@ -131,7 +132,14 @@ REST_FRAMEWORK = {
         'DEFAULT_PERMISSION_CLASSES': (
             'rest_framework.permissions.IsAuthenticated',
         ),
+        'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Your Project API',
+    'DESCRIPTION': 'API documentation',
+    'VERSION': '1.0.0',
+}
 
     # JWT Settings
 SIMPLE_JWT = {
@@ -143,17 +151,8 @@ SIMPLE_JWT = {
 
     # Channels (for chat)
 CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                'hosts': [
-    (
-        config('REDIS_HOST', default='localhost'),
-        config('REDIS_PORT', default=6379, cast=int)
-    )
-]
-,
-            },
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
     }
 

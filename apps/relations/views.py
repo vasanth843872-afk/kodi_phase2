@@ -14,6 +14,9 @@ from .serializers import (
     GenderValidationSerializer
 )
 from .services import RelationLabelService, ConflictDetectionService
+import logging
+
+logger = logging.getLogger(__name__)
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -247,51 +250,87 @@ from apps.genealogy.models import Person
 @permission_classes([IsAuthenticated])
 def calculate_relation_from_path(request):
     """
-    Calculate relation from click path.
-    
-    Request JSON:
-    {
-        "from_person_id": 1,
-        "path": ["father", "brother"],
-        "context": {
-            "language": "ta",
-            "religion": "Hindu",
-            "caste": "Brahmin",
-            "family_name": "Sharma"
-        }
-    }
+    Calculate relation from click path with automatic profile context.
+    Now automatically fetches ALL profile fields from user's profile.
     """
     try:
         data = request.data
+        user = request.user
         
-        # Get person objects
-        # from_person = Person.objects.get(
-        #     id=data['from_person_id'],
-        #     linked_user=request.user  # Security check
-        # )
-        
+        # Get from_person
         from_person = Person.objects.filter(
-            linked_user=request.user
+            linked_user=user
         ).first()
+        
+        if not from_person:
+            return Response(
+                {'error': 'Person record not found for user'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # ===== AUTO-FETCH ALL PROFILE FIELDS =====
+        profile = user.profile
+        
+        # Build complete context from profile
+        auto_context = {
+            # Language & Religion
+            'language': getattr(profile, 'preferred_language', 'ta'),
+            'religion': getattr(profile, 'religion', ''),
+            
+            # Caste & Family
+            'caste': getattr(profile, 'caste', ''),
+            'family_name': getattr(profile, 'familyname1', ''),
+            
+            # Location fields - THESE WERE MISSING!
+            'native': getattr(profile, 'native', ''),
+            'present_city': getattr(profile, 'present_city', ''),
+            'taluk': getattr(profile, 'taluk', ''),
+            'district': getattr(profile, 'district', ''),
+            'state': getattr(profile, 'state', ''),
+            'nationality': getattr(profile, 'nationality', ''),
+            
+            # Tamil path preference
+            'include_tamil_path': data.get('context', {}).get('include_tamil_path', True)
+        }
+        
+        # Get any context sent in request (will override auto_context if provided)
+        request_context = data.get('context', {})
+        
+        # Merge: request_context overrides auto_context
+        final_context = {**auto_context, **request_context}
+        
+        # LOG what we're sending (for debugging)
+        logger.info(f"User: {user.id}")
+        logger.info(f"Auto-fetched profile: {auto_context}")
+        logger.info(f"Request context: {request_context}")
+        logger.info(f"Final context: {final_context}")
         
         # Calculate relation
         result = RelationAutomationEngine.calculate_relation_from_path(
             from_person=from_person,
             path_elements=data['path'],
-            context=data.get('context', {})
+            context=final_context
         )
         
         return Response({
             'success': True,
-            'result': result
+            'result': result,
+            'context_used': final_context  # Include this for debugging
         })
         
+    except AttributeError as e:
+        logger.error(f"Profile attribute error: {str(e)}", exc_info=True)
+        return Response(
+            {'error': f'Profile field missing: {str(e)}'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     except Person.DoesNotExist:
         return Response(
-            {'error': 'Person not found or access denied'},
+            {'error': 'Person not found'},
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
+        logger.error(f"Error in calculate_relation_from_path: {str(e)}", exc_info=True)
         return Response(
             {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST

@@ -79,10 +79,10 @@ class UserProfile(models.Model):
             'fathername2': self.fathername2,
             'mothername1': self.mothername1,
             'mothername2': self.mothername2,
+            'image': self.image.url if self.image else None,
             'gender': self.gender,
             'preferred_language': self.preferred_language,
-            'religion': self.religion,
-            'caste': self.caste,
+            
         }
     
     def get_private_fields(self):
@@ -91,7 +91,6 @@ class UserProfile(models.Model):
             **self.get_public_fields(),
             'dateofbirth': self.dateofbirth,
             'age': self.age,
-            'image': self.image.url if self.image else None,
             'native': self.native,
             'present_city': self.present_city,
             'taluk': self.taluk,
@@ -105,4 +104,6 @@ class UserProfile(models.Model):
             'familyname3': self.familyname3,
             'familyname4': self.familyname4,
             'familyname5': self.familyname5,
+            'religion': self.religion,
+            'caste': self.caste,
         }

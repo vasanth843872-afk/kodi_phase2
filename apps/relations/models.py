@@ -19,6 +19,7 @@ class FixedRelation(models.Model):
     default_english = models.CharField(max_length=100)
     default_tamil = models.CharField(max_length=100)
     category = models.CharField(max_length=50, choices=RELATION_CATEGORIES)
+    is_active = models.BooleanField(default=True, help_text="Whether this relation is currently active/available")
     
     # Gender restrictions (optional)
     from_gender = models.CharField(max_length=1, choices=[
@@ -182,3 +183,114 @@ class RelationFamily(models.Model):
         return f"{self.relation.relation_code} - {self.family}: {self.label}"
     
     
+
+class RelationProfileOverride(models.Model):
+    """
+    Complete override model that includes ALL profile fields:
+    - Basic: language, religion, caste, family
+    - Location: native, present_city, taluk, district, state, nationality
+    """
+    relation = models.ForeignKey(
+        FixedRelation,
+        on_delete=models.CASCADE,
+        related_name='profile_overrides'
+    )
+    
+    # Basic fields (from existing overrides)
+    language = models.CharField(max_length=10, choices=[('en', 'English'), ('ta', 'Tamil')], default='en')
+    religion = models.CharField(max_length=100, blank=True, null=True)
+    caste = models.CharField(max_length=100, blank=True, null=True)
+    family = models.CharField(max_length=200, blank=True, null=True)
+    
+    # Profile location fields (NEW)
+    native = models.CharField(max_length=200, blank=True, null=True)
+    present_city = models.CharField(max_length=100, blank=True, null=True)
+    taluk = models.CharField(max_length=100, blank=True, null=True)
+    district = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    nationality = models.CharField(max_length=100, blank=True, null=True)
+    
+    # The override label
+    label = models.CharField(max_length=200)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    
+    class Meta:
+        db_table = 'relation_profile_overrides'
+        indexes = [
+            # Basic combinations
+            models.Index(fields=['relation', 'language', 'religion']),
+            models.Index(fields=['relation', 'language', 'religion', 'caste']),
+            models.Index(fields=['relation', 'language', 'religion', 'caste', 'family']),
+            
+            # Location combinations
+            models.Index(fields=['relation', 'native', 'present_city']),
+            models.Index(fields=['relation', 'district', 'state']),
+            models.Index(fields=['relation', 'nationality']),
+            models.Index(fields=['relation', 'state', 'district', 'taluk']),
+            
+            # Mixed combinations
+            models.Index(fields=['relation', 'religion', 'state']),
+            models.Index(fields=['relation', 'caste', 'district']),
+        ]
+        # Unique constraint on all fields to prevent duplicates
+        unique_together = [
+            ['relation', 'language', 'religion', 'caste', 'family', 
+             'native', 'present_city', 'taluk', 'district', 'state', 'nationality']
+        ]
+    
+    def __str__(self):
+        parts = [f"{self.relation.relation_code}"]
+        
+        if self.religion:
+            parts.append(f"religion={self.religion}")
+        if self.caste:
+            parts.append(f"caste={self.caste}")
+        if self.family:
+            parts.append(f"family={self.family}")
+        if self.native:
+            parts.append(f"native={self.native}")
+        if self.present_city:
+            parts.append(f"city={self.present_city}")
+        if self.taluk:
+            parts.append(f"taluk={self.taluk}")
+        if self.district:
+            parts.append(f"district={self.district}")
+        if self.state:
+            parts.append(f"state={self.state}")
+        if self.nationality:
+            parts.append(f"nationality={self.nationality}")
+        
+        return f"{' - '.join(parts)} -> {self.label}"
+    
+    
+    def get_non_empty_fields(self):
+        """Return list of fields that have non-empty values."""
+        fields = []
+        if self.language: fields.append('language')
+        if self.religion: fields.append('religion')
+        if self.caste: fields.append('caste')
+        if self.family: fields.append('family')
+        if self.native: fields.append('native')
+        if self.present_city: fields.append('present_city')
+        if self.taluk: fields.append('taluk')
+        if self.district: fields.append('district')
+        if self.state: fields.append('state')
+        if self.nationality: fields.append('nationality')
+        return fields
+    
+    def get_specificity_score(self):
+        """Return number of non-empty fields (higher = more specific)."""
+        return len(self.get_non_empty_fields())
+    
+    # def get_specificity_score(self):
+    #     """Calculate how specific this override is (higher = more specific)."""
+    #     fields = [
+    #         self.family, self.caste, self.religion,
+    #         self.native, self.present_city, self.taluk,
+    #         self.district, self.state, self.nationality
+    #     ]
+    #     return sum(1 for field in fields if field)

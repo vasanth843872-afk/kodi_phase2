@@ -36,7 +36,6 @@ class CanViewUsers(permissions.BasePermission):
         except StaffPermission.DoesNotExist:
             return False
         
-# admin_app/permissions.py (add to your existing file)
 from rest_framework import permissions
 
 class HasRelationPermission(permissions.BasePermission):
@@ -82,3 +81,8 @@ class CanViewRelationAnalytics(HasRelationPermission):
 class CanExportRelationData(HasRelationPermission):
     def __init__(self):
         super().__init__('can_export_relation_data')
+        
+class CanManageProfileOverrides(HasRelationPermission):
+    """Permission for managing profile overrides."""
+    def __init__(self):
+        super().__init__('can_manage_profile_overrides')

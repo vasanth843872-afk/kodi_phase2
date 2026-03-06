@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import MobileNumberSearchView, MobileNumberAutocompleteView
 from . import views
 
 urlpatterns = [
@@ -11,4 +12,8 @@ urlpatterns = [
     path('auto-login/', views.AutoLoginView.as_view(), name='auto-login'),
     path('check-login-status/', views.CheckLoginStatusView.as_view(), name='check-login-status'),
     path('smart-login/', views.SmartLoginView.as_view(), name='smart-login'),  # Recommended
+    
+    
+    path('api/mobile-search/', views.MobileNumberSearchView.as_view(), name='mobile-search'),
+    path('api/mobile-autocomplete/', views.MobileNumberAutocompleteView.as_view(), name='mobile-autocomplete'),
 ]

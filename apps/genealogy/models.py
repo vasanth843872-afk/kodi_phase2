@@ -307,15 +307,35 @@ class PersonRelation(models.Model):
             conflicts = []
             # Detect conflicts
             if self.status != 'conflicted':
-                conflicts = ConflictDetectionService.detect_conflicts(
+                conflicts_result = ConflictDetectionService.detect_conflicts(
                     self.from_person_id,
                     self.to_person_id,
                     self.relation.relation_code
                 )
-            
-            if conflicts:
-                self.status = 'conflicted'
-                self.conflict_reason = '; '.join(conflicts)
+                
+                # Handle different return types
+                if conflicts_result:
+                    if isinstance(conflicts_result[0], dict):
+                        # Extract messages from dictionaries
+                        conflicts = []
+                        for c in conflicts_result:
+                            if isinstance(c, dict):
+                                # Try common dictionary keys that might contain the message
+                                message = (c.get('message') or 
+                                        c.get('error') or 
+                                        c.get('description') or 
+                                        c.get('detail') or
+                                        str(c))
+                                conflicts.append(message)
+                            else:
+                                conflicts.append(str(c))
+                    else:
+                        # Already strings
+                        conflicts = conflicts_result
+                
+                if conflicts:
+                    self.status = 'conflicted'
+                    self.conflict_reason = '; '.join(conflicts)
     
     def save(self, *args, **kwargs):
         self.full_clean()
