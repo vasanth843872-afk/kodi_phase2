@@ -82,7 +82,7 @@ ASGI_APPLICATION = 'kodi_core.asgi.application'
     # Database
 DATABASES = {
     
-        'default': dj_database_url.parse(config('postgresql://kod_db_user:GmoKik2x9ugh7zm5QC8fEQIsS3OCKL6Y@dpg-d6m1klpaae7s73f9pc00-a/kod_db'))
+        'default': 'postgresql://kod_db_user:GmoKik2x9ugh7zm5QC8fEQIsS3OCKL6Y@dpg-d6m1klpaae7s73f9pc00-a/kod_db'
         # 'default': {
         #     'ENGINE': 'django.db.backends.postgresql',
         #     'NAME': config('DB_NAME', default='kodi_db'),
