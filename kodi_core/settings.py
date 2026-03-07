@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 
-DEBUG = True
+DEBUG = False
 
 # ALLOWED_HOSTS = ['*']
 ALLOWED_HOSTS = ['192.168.1.10','127.0.0.1','kodi-phase2.onrender.com']
@@ -81,14 +81,16 @@ ASGI_APPLICATION = 'kodi_core.asgi.application'
 
     # Database
 DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME', default='kodi_db'),
-            'USER': config('DB_USER', default='myuser'),
-            'PASSWORD': config('DB_PASSWORD', default='pass123'),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='5432'),
-        }
+    
+        'default': dj_database_url.parse(config('postgresql://kod_db_user:GmoKik2x9ugh7zm5QC8fEQIsS3OCKL6Y@dpg-d6m1klpaae7s73f9pc00-a/kod_db'))
+        # 'default': {
+        #     'ENGINE': 'django.db.backends.postgresql',
+        #     'NAME': config('DB_NAME', default='kodi_db'),
+        #     'USER': config('DB_USER', default='myuser'),
+        #     'PASSWORD': config('DB_PASSWORD', default='pass123'),
+        #     'HOST': config('DB_HOST', default='localhost'),
+        #     'PORT': config('DB_PORT', default='5432'),
+        # }
     }
 
     # Password validation

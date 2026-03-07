@@ -97,13 +97,6 @@ class PersonViewSet(viewsets.ModelViewSet):
                 {'error': str(exc), 'code': 'validation_error'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
-        if isinstance(exc, (Person.DoesNotExist, PersonNotFoundError)):
-            self.logger.info(f"Person not found: {str(exc)}", extra=context)
-            return Response(
-                {'error': 'Person record not found', 'code': 'person_not_found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
         
         if isinstance(exc, DuplicateRelationError):
             self.logger.warning(f"Duplicate relation: {str(exc)}", extra=context)
@@ -151,24 +144,6 @@ class PersonViewSet(viewsets.ModelViewSet):
                 extra={'person_id': person.id, 'error': str(e)}
             )
         return person
-    
-    @action(detail=True, methods=['post'])
-    def sync_with_profile(self, request, pk=None):
-        """Manually sync person record with user profile."""
-        context = {'person_id': pk, 'user_id': request.user.id}
-        try:
-            person = self.get_object()
-            self._sync_person_with_profile(person)
-            
-            return Response({
-                'success': True,
-                'message': f'Synced {person.full_name} with profile',
-                'person_gender': person.gender,
-                'profile_gender': getattr(person.linked_user.profile, 'gender', None) 
-                    if person.linked_user else None
-            })
-        except Exception as e:
-            return self._handle_exception(e, context)
     
     def _get_user_display_name(self, user) -> str:
         """Get user's display name from profile or mobile number."""
@@ -438,236 +413,236 @@ class PersonViewSet(viewsets.ModelViewSet):
         }
         return labels.get(relation_code, relation_code)
     
-    @action(detail=True, methods=['get'])
-    def generation_summary(self, request, pk=None):
-        """Get summary of generations and member counts for a person."""
-        context = {'person_id': pk, 'user_id': request.user.id, 'action': 'generation_summary'}
-        try:
-            person = self.get_object()
-            me = Person.objects.filter(linked_user=request.user).first()
+    # @action(detail=True, methods=['get'])
+    # def generation_summary(self, request, pk=None):
+    #     """Get summary of generations and member counts for a person."""
+    #     context = {'person_id': pk, 'user_id': request.user.id, 'action': 'generation_summary'}
+    #     try:
+    #         person = self.get_object()
+    #         me = Person.objects.filter(linked_user=request.user).first()
             
-            if not me:
-                return Response(
-                    {'error': 'User has no person profile', 'code': 'no_person_profile'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+    #         if not me:
+    #             return Response(
+    #                 {'error': 'User has no person profile', 'code': 'no_person_profile'},
+    #                 status=status.HTTP_400_BAD_REQUEST
+    #             )
             
-            # Get all persons in the same family
-            family_members = Person.objects.filter(family=person.family)
+    #         # Get all persons in the same family
+    #         family_members = Person.objects.filter(family=person.family)
             
-            # Group by generation
-            generations = {}
+    #         # Group by generation
+    #         generations = {}
             
-            for member in family_members:
-                generation = self._calculate_generation(member, person)
+    #         for member in family_members:
+    #             generation = self._calculate_generation(member, person)
                 
-                if generation is not None:
-                    if generation not in generations:
-                        generations[generation] = {
-                            'generation': generation,
-                            'label': self._get_generation_label_for_number(generation),
-                            'count': 0,
-                            'members': []
-                        }
+    #             if generation is not None:
+    #                 if generation not in generations:
+    #                     generations[generation] = {
+    #                         'generation': generation,
+    #                         'label': self._get_generation_label_for_number(generation),
+    #                         'count': 0,
+    #                         'members': []
+    #                     }
                     
-                    generations[generation]['count'] += 1
+    #                 generations[generation]['count'] += 1
                     
-                    member_info = {
-                        'id': member.id,
-                        'name': member.full_name,
-                        'gender': member.gender,
-                        'is_current_user': member == person,
-                        'relation': self._get_relation_to_person(member, person)
-                    }
+    #                 member_info = {
+    #                     'id': member.id,
+    #                     'name': member.full_name,
+    #                     'gender': member.gender,
+    #                     'is_current_user': member == person,
+    #                     'relation': self._get_relation_to_person(member, person)
+    #                 }
                     
-                    generations[generation]['members'].append(member_info)
+    #                 generations[generation]['members'].append(member_info)
             
-            # Sort generations
-            sorted_generations = sorted(generations.values(), key=lambda x: x['generation'])
+    #         # Sort generations
+    #         sorted_generations = sorted(generations.values(), key=lambda x: x['generation'])
             
-            # Calculate statistics
-            total_members = family_members.count()
-            generation_count = len(generations)
+    #         # Calculate statistics
+    #         total_members = family_members.count()
+    #         generation_count = len(generations)
             
-            if generations:
-                oldest_gen = min(generations.keys())
-                youngest_gen = max(generations.keys())
-            else:
-                oldest_gen = youngest_gen = 0
+    #         if generations:
+    #             oldest_gen = min(generations.keys())
+    #             youngest_gen = max(generations.keys())
+    #         else:
+    #             oldest_gen = youngest_gen = 0
             
-            serializer = self.get_serializer(person)
-            immediate_family_count = serializer.get_immediate_family_count(person)
-            total_connected_count = serializer.get_total_connected_count(person)
+    #         serializer = self.get_serializer(person)
+    #         immediate_family_count = serializer.get_immediate_family_count(person)
+    #         total_connected_count = serializer.get_total_connected_count(person)
             
-            response_data = {
-                'center_person': {
-                    'id': person.id,
-                    'name': person.full_name,
-                    'generation': 0,
-                    'generation_label': 'Current Generation'
-                },
-                'generations': sorted_generations,
-                'statistics': {
-                    'total_family_members': total_members,
-                    'generation_count': generation_count,
-                    'oldest_generation': oldest_gen,
-                    'youngest_generation': youngest_gen,
-                    'generation_span': abs(youngest_gen - oldest_gen) + 1 if generations else 0
-                },
-                'member_counts': {
-                    'immediate_family': immediate_family_count,
-                    'total_connected': total_connected_count,
-                    'family_members': total_members
-                },
-                'viewer_info': {
-                    'viewer_person_id': me.id,
-                    'viewer_generation': self._calculate_generation(me, person),
-                    'viewer_relation': self._get_relation_to_person(me, person)
-                }
-            }
+    #         response_data = {
+    #             'center_person': {
+    #                 'id': person.id,
+    #                 'name': person.full_name,
+    #                 'generation': 0,
+    #                 'generation_label': 'Current Generation'
+    #             },
+    #             'generations': sorted_generations,
+    #             'statistics': {
+    #                 'total_family_members': total_members,
+    #                 'generation_count': generation_count,
+    #                 'oldest_generation': oldest_gen,
+    #                 'youngest_generation': youngest_gen,
+    #                 'generation_span': abs(youngest_gen - oldest_gen) + 1 if generations else 0
+    #             },
+    #             'member_counts': {
+    #                 'immediate_family': immediate_family_count,
+    #                 'total_connected': total_connected_count,
+    #                 'family_members': total_members
+    #             },
+    #             'viewer_info': {
+    #                 'viewer_person_id': me.id,
+    #                 'viewer_generation': self._calculate_generation(me, person),
+    #                 'viewer_relation': self._get_relation_to_person(me, person)
+    #             }
+    #         }
             
-            return Response(response_data)
+    #         return Response(response_data)
             
-        except Exception as e:
-            return self._handle_exception(e, context)
+    #     except Exception as e:
+    #         return self._handle_exception(e, context)
     
-    def _calculate_generation(self, person: Person, reference_person: Person) -> Optional[int]:
-        """Calculate generation number between two persons."""
-        try:
-            if person == reference_person:
-                return 0
+    # def _calculate_generation(self, person: Person, reference_person: Person) -> Optional[int]:
+    #     """Calculate generation number between two persons."""
+    #     try:
+    #         if person == reference_person:
+    #             return 0
             
-            # Check if person is ancestor
-            generation = self._find_ancestor_generation(person, reference_person)
-            if generation is not None:
-                return generation
+    #         # Check if person is ancestor
+    #         generation = self._find_ancestor_generation(person, reference_person)
+    #         if generation is not None:
+    #             return generation
             
-            # Check if person is descendant
-            generation = self._find_descendant_generation(person, reference_person)
-            if generation is not None:
-                return generation * -1
+    #         # Check if person is descendant
+    #         generation = self._find_descendant_generation(person, reference_person)
+    #         if generation is not None:
+    #             return generation * -1
             
-            return None
+    #         return None
             
-        except Exception as e:
-            self.logger.error(
-                f"Error calculating generation: {str(e)}",
-                extra={
-                    'person_id': person.id if person else None,
-                    'reference_id': reference_person.id if reference_person else None
-                }
-            )
-            return None
+    #     except Exception as e:
+    #         self.logger.error(
+    #             f"Error calculating generation: {str(e)}",
+    #             extra={
+    #                 'person_id': person.id if person else None,
+    #                 'reference_id': reference_person.id if reference_person else None
+    #             }
+    #         )
+    #         return None
     
-    def _find_ancestor_generation(
-        self, 
-        ancestor: Person, 
-        person: Person, 
-        max_depth: int = 10, 
-        current_depth: int = 0, 
-        visited: Optional[Set[int]] = None
-    ) -> Optional[int]:
-        """Find how many generations above the person the ancestor is."""
-        if visited is None:
-            visited = set()
+    # def _find_ancestor_generation(
+    #     self, 
+    #     ancestor: Person, 
+    #     person: Person, 
+    #     max_depth: int = 10, 
+    #     current_depth: int = 0, 
+    #     visited: Optional[Set[int]] = None
+    # ) -> Optional[int]:
+    #     """Find how many generations above the person the ancestor is."""
+    #     if visited is None:
+    #         visited = set()
         
-        if current_depth > max_depth:
-            return None
+    #     if current_depth > max_depth:
+    #         return None
         
-        if person.id in visited:
-            return None
+    #     if person.id in visited:
+    #         return None
         
-        visited.add(person.id)
+    #     visited.add(person.id)
         
-        if ancestor == person:
-            return current_depth
+    #     if ancestor == person:
+    #         return current_depth
         
-        # Get direct parents
-        parent_relations = PersonRelation.objects.filter(
-            to_person=person,
-            relation__relation_code__in=['FATHER', 'MOTHER'],
-            status__in=['confirmed', 'pending']
-        ).select_related('from_person')
+    #     # Get direct parents
+    #     parent_relations = PersonRelation.objects.filter(
+    #         to_person=person,
+    #         relation__relation_code__in=['FATHER', 'MOTHER'],
+    #         status__in=['confirmed', 'pending']
+    #     ).select_related('from_person')
         
-        for rel in parent_relations:
-            parent = rel.from_person
-            result = self._find_ancestor_generation(
-                ancestor, parent, max_depth, current_depth + 1, visited
-            )
-            if result is not None:
-                return result
+    #     for rel in parent_relations:
+    #         parent = rel.from_person
+    #         result = self._find_ancestor_generation(
+    #             ancestor, parent, max_depth, current_depth + 1, visited
+    #         )
+    #         if result is not None:
+    #             return result
         
-        # Check reverse direction
-        child_relations = PersonRelation.objects.filter(
-            from_person=person,
-            relation__relation_code__in=['SON', 'DAUGHTER'],
-            status__in=['confirmed', 'pending']
-        ).select_related('to_person')
+    #     # Check reverse direction
+    #     child_relations = PersonRelation.objects.filter(
+    #         from_person=person,
+    #         relation__relation_code__in=['SON', 'DAUGHTER'],
+    #         status__in=['confirmed', 'pending']
+    #     ).select_related('to_person')
         
-        for rel in child_relations:
-            child = rel.to_person
-            result = self._find_ancestor_generation(
-                ancestor, child, max_depth, current_depth - 1, visited
-            )
-            if result is not None:
-                return result
+    #     for rel in child_relations:
+    #         child = rel.to_person
+    #         result = self._find_ancestor_generation(
+    #             ancestor, child, max_depth, current_depth - 1, visited
+    #         )
+    #         if result is not None:
+    #             return result
         
-        return None
+    #     return None
     
-    def _find_descendant_generation(
-        self, 
-        descendant: Person, 
-        person: Person, 
-        max_depth: int = 10, 
-        current_depth: int = 0, 
-        visited: Optional[Set[int]] = None
-    ) -> Optional[int]:
-        """Find how many generations below the person the descendant is."""
-        if visited is None:
-            visited = set()
+    # def _find_descendant_generation(
+    #     self, 
+    #     descendant: Person, 
+    #     person: Person, 
+    #     max_depth: int = 10, 
+    #     current_depth: int = 0, 
+    #     visited: Optional[Set[int]] = None
+    # ) -> Optional[int]:
+    #     """Find how many generations below the person the descendant is."""
+    #     if visited is None:
+    #         visited = set()
         
-        if current_depth > max_depth:
-            return None
+    #     if current_depth > max_depth:
+    #         return None
         
-        if person.id in visited:
-            return None
+    #     if person.id in visited:
+    #         return None
         
-        visited.add(person.id)
+    #     visited.add(person.id)
         
-        if descendant == person:
-            return current_depth
+    #     if descendant == person:
+    #         return current_depth
         
-        # Get children
-        children = PersonRelation.objects.filter(
-            from_person=person,
-            relation__relation_code__in=['SON', 'DAUGHTER'],
-            status__in=['confirmed', 'pending']
-        ).select_related('to_person')
+    #     # Get children
+    #     children = PersonRelation.objects.filter(
+    #         from_person=person,
+    #         relation__relation_code__in=['SON', 'DAUGHTER'],
+    #         status__in=['confirmed', 'pending']
+    #     ).select_related('to_person')
         
-        for child_rel in children:
-            child = child_rel.to_person
-            result = self._find_descendant_generation(
-                descendant, child, max_depth, current_depth + 1, visited
-            )
-            if result is not None:
-                return result
+    #     for child_rel in children:
+    #         child = child_rel.to_person
+    #         result = self._find_descendant_generation(
+    #             descendant, child, max_depth, current_depth + 1, visited
+    #         )
+    #         if result is not None:
+    #             return result
         
-        # Check reverse direction
-        parent_relations = PersonRelation.objects.filter(
-            to_person=person,
-            relation__relation_code__in=['SON', 'DAUGHTER'],
-            status__in=['confirmed', 'pending']
-        ).select_related('from_person')
+    #     # Check reverse direction
+    #     parent_relations = PersonRelation.objects.filter(
+    #         to_person=person,
+    #         relation__relation_code__in=['SON', 'DAUGHTER'],
+    #         status__in=['confirmed', 'pending']
+    #     ).select_related('from_person')
         
-        for rel in parent_relations:
-            parent = rel.from_person
-            result = self._find_descendant_generation(
-                descendant, parent, max_depth, current_depth - 1, visited
-            )
-            if result is not None:
-                return result
+    #     for rel in parent_relations:
+    #         parent = rel.from_person
+    #         result = self._find_descendant_generation(
+    #             descendant, parent, max_depth, current_depth - 1, visited
+    #         )
+    #         if result is not None:
+    #             return result
         
-        return None
+    #     return None
     
     def _get_generation_label_for_number(self, generation: int) -> str:
         """Get label for a specific generation number."""
@@ -693,43 +668,43 @@ class PersonViewSet(viewsets.ModelViewSet):
         else:
             return f"Generation {generation}"
     
-    def _get_relation_to_person(self, person1: Person, person2: Person) -> Optional[Dict]:
-        """Get relation between two persons."""
-        try:
-            if not person1 or not person2:
-                return None
+    # def _get_relation_to_person(self, person1: Person, person2: Person) -> Optional[Dict]:
+    #     """Get relation between two persons."""
+    #     try:
+    #         if not person1 or not person2:
+    #             return None
             
-            if person1 == person2:
-                return {'code': 'SELF', 'label': 'Self'}
+    #         if person1 == person2:
+    #             return {'code': 'SELF', 'label': 'Self'}
             
-            relation = PersonRelation.objects.filter(
-                Q(from_person=person1, to_person=person2) |
-                Q(from_person=person2, to_person=person1),
-                status__in=['confirmed', 'pending']
-            ).select_related('relation').first()
+    #         relation = PersonRelation.objects.filter(
+    #             Q(from_person=person1, to_person=person2) |
+    #             Q(from_person=person2, to_person=person1),
+    #             status__in=['confirmed', 'pending']
+    #         ).select_related('relation').first()
             
-            if relation:
-                if relation.from_person == person1:
-                    return {
-                        'code': relation.relation.relation_code,
-                        'label': relation.relation.default_english
-                    }
-                else:
-                    inverse_code = self._get_inverse_relation_code(
-                        relation.relation.relation_code,
-                        person1.gender,
-                        person2.gender
-                    )
-                    return {
-                        'code': inverse_code,
-                        'label': self._get_relation_label(inverse_code)
-                    }
+    #         if relation:
+    #             if relation.from_person == person1:
+    #                 return {
+    #                     'code': relation.relation.relation_code,
+    #                     'label': relation.relation.default_english
+    #                 }
+    #             else:
+    #                 inverse_code = self._get_inverse_relation_code(
+    #                     relation.relation.relation_code,
+    #                     person1.gender,
+    #                     person2.gender
+    #                 )
+    #                 return {
+    #                     'code': inverse_code,
+    #                     'label': self._get_relation_label(inverse_code)
+    #                 }
             
-            return {'code': 'RELATED', 'label': 'Related'}
+    #         return {'code': 'RELATED', 'label': 'Related'}
             
-        except Exception as e:
-            self.logger.error(f"Error getting relation between persons: {str(e)}")
-            return None
+    #     except Exception as e:
+    #         self.logger.error(f"Error getting relation between persons: {str(e)}")
+    #         return None
     
     @action(detail=True, methods=['get'])
     def relations(self, request, pk=None):
