@@ -36,6 +36,7 @@ INSTALLED_APPS = [
         'channels',
         'drf_yasg',
         'drf_spectacular',
+        'dj_database_url',
         
         # Local apps
         'apps.accounts',
