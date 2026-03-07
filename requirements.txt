@@ -13,3 +13,4 @@ drf-yasg
 celery
 redis
 gunicorn==22.0.0
+django_extensions
