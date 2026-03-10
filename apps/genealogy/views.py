@@ -381,6 +381,37 @@ class PersonViewSet(viewsets.ModelViewSet):
             'YOUNGER_BROTHER': {'M': 'ELDER_BROTHER', 'F': 'ELDER_SISTER'},
             'ELDER_SISTER': {'M': 'YOUNGER_BROTHER', 'F': 'YOUNGER_SISTER'},
             'YOUNGER_SISTER': {'M': 'ELDER_BROTHER', 'F': 'ELDER_SISTER'},
+            # Grandparent ⇄ Grandchild
+            'THATHA': {'M': 'PERAN', 'F': 'PETTHI'},
+            'PAATI': {'M': 'PERAN', 'F': 'PETTHI'},
+            'PERAN': {'M': 'THATHA', 'F': 'PAATI'},
+            'PETTHI': {'M': 'THATHA', 'F': 'PAATI'},
+            
+            # Uncle/Aunt ⇄ Nephew/Niece
+            'PERIYAPPA': {'M': 'MAGAN?', 'F': 'MAGHAZH?'},  # Father's elder brother → his children
+            'CHITHAPPA': {'M': 'MAGAN?', 'F': 'MAGHAZH?'},  # Father's younger brother → his children
+            'PERIYAMMA': {'M': 'MAGAN?', 'F': 'MAGHAZH?'},  # Father's elder brother's wife
+            'CHITHI': {'M': 'MAGAN?', 'F': 'MAGHAZH?'},     # Father's younger brother's wife
+            'MAMA': {'M': 'MARUMAGAN', 'F': 'MARUMAGAL'},   # Mother's brother → his children
+            'ATHAI': {'M': 'MARUMAGAN', 'F': 'MARUMAGAL'},  # Father's sister → her children
+            
+            # Nephew/Niece ⇄ Uncle/Aunt
+            'MARUMAGAN': {'M': 'MAMA', 'F': 'ATHAI'},       # Sister's son → his uncle/aunt
+            'MARUMAGAL': {'M': 'MAMA', 'F': 'ATHAI'},       # Sister's daughter → her uncle/aunt
+            
+            # Sibling inversions
+            'ANNA': {'M': 'THAMBI', 'F': 'THANGAI?'},       # Elder brother → younger sibling
+            'AKKA': {'M': 'THAMBI?', 'F': 'THANGAI'},       # Elder sister → younger sibling
+            'THAMBI': {'M': 'ANNA', 'F': 'AKKA?'},          # Younger brother → elder sibling
+            'THANGAI': {'M': 'ANNA?', 'F': 'AKKA'},         # Younger sister → elder sibling
+            
+            # Parent ⇄ Child
+            'MAGAN': {'M': 'APPAN?', 'F': 'AMMA?'},         # Son → parent
+            'MAGHAZH': {'M': 'APPAN?', 'F': 'AMMA?'},       # Daughter → parent
+            
+            # In-law inversions
+            'ATHAN': {'F': 'ANNI'},                          # Husband's brother → wife
+            'ANNI': {'M': 'ATHAN'},                          # Husband's brother's wife
         }
         
         try:
@@ -708,7 +739,7 @@ class PersonViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def relations(self, request, pk=None):
-        """Get relations for a person with generation info."""
+        """Get STANDARD relations for a person with generation info (NO Ashramam)."""
         context = {'person_id': pk, 'user_id': request.user.id, 'action': 'relations'}
         try:
             person = self.get_object()
@@ -723,15 +754,36 @@ class PersonViewSet(viewsets.ModelViewSet):
                     'code': 'no_person_profile'
                 })
             
-            # FIXED: Include pending relations in outgoing too
+            # Define STANDARD relation codes (non-Ashramam)
+            STANDARD_RELATION_CODES = [
+                'FATHER', 'MOTHER', 
+                'SON', 'DAUGHTER',
+                'HUSBAND', 'WIFE', 'SPOUSE',
+                'BROTHER', 'SISTER',
+                'ELDER_BROTHER', 'YOUNGER_BROTHER',
+                'ELDER_SISTER', 'YOUNGER_SISTER',
+                'PARENT', 'CHILD',
+                'GRANDFATHER', 'GRANDMOTHER',
+                'GRANDSON', 'GRANDDAUGHTER',
+                'UNCLE', 'AUNT',
+                'NEPHEW', 'NIECE',
+                'FATHER_IN_LAW', 'MOTHER_IN_LAW',
+                'BROTHER_IN_LAW', 'SISTER_IN_LAW',
+                'SON_IN_LAW', 'DAUGHTER_IN_LAW'
+            ]
+            
+            # Filter outgoing relations - ONLY STANDARD
             outgoing = PersonRelation.objects.filter(
                 from_person=person,
-                status__in=['confirmed', 'pending']  # ← Changed this line
+                relation__relation_code__in=STANDARD_RELATION_CODES,
+                status__in=['confirmed', 'pending']
             ).select_related('to_person', 'relation', 'to_person__linked_user__profile')
             
+            # Filter incoming relations - ONLY STANDARD
             incoming = PersonRelation.objects.filter(
                 to_person=person,
-                status__in=['confirmed', 'pending']  # ← Also add this for consistency
+                relation__relation_code__in=STANDARD_RELATION_CODES,
+                status__in=['confirmed', 'pending']
             ).select_related('from_person', 'relation', 'from_person__linked_user__profile')
             
             context = {
@@ -755,13 +807,468 @@ class PersonViewSet(viewsets.ModelViewSet):
                 'member_counts': {
                     'immediate_family': serializer.get_immediate_family_count(person),
                     'total_connected': serializer.get_total_connected_count(person)
-                }
+                },
+                # Add note about Ashramam relations
+                'note': 'For Tamil/Ashramam relations, use /ashramam-relations/ endpoint',
+                'ashramam_endpoint': f'/api/persons/{person.id}/ashramam-relations/'
             }
             
             return Response(data)
             
         except Exception as e:
             return self._handle_exception(e, context)
+        
+    @action(detail=True, methods=['get'], url_path='ashramam-relations')
+    def ashramam_relations(self, request, pk=None):
+        """
+        GET /api/persons/{id}/ashramam-relations/
+        Returns ONLY Ashramam/Tamil relations for a person with their status
+        """
+        context = {'person_id': pk, 'user_id': request.user.id, 'action': 'ashramam_relations'}
+        try:
+            person = self.get_object()
+            
+            # Define ALL Ashramam relation codes
+            ASHRAMAM_CODES = [
+                # Grandparents
+                'THATHA', 'PAATI',
+                
+                # Paternal uncles/aunts
+                'PERIYAPPA', 'CHITHAPPA', 'PERIYAMMA', 'CHITHI',
+                
+                # Maternal uncles/aunts
+                'MAMA', 'ATHAI',
+                
+                # In-laws (spouse's side)
+                'ATHAN', 'ANNI', 'KOLUNTHANAR', 'KOLUNTHIYAZH',
+                
+                # Children's spouses
+                'MARUMAGAN', 'MARUMAGAL',
+                
+                # Grandchildren
+                'PERAN', 'PETTHI',
+                
+                # Siblings in Tamil
+                'ANNA', 'AKKA', 'THAMBI', 'THANGAI',
+                
+                # Children in Tamil
+                'MAGAN', 'MAGHAZH',
+                
+                # Additional
+                'MAITHUNAR', 'MAITHUNI',
+                
+                # Custom/Composite relations
+                'GREAT_GRANDFATHER', 'GREAT_GRANDMOTHER',
+                'GREAT_PERAN', 'GREAT_PETTHI',
+            ]
+            
+            # Get existing Ashramam relations for this person
+            # Relations where this person is the TARGET (incoming - their relatives)
+            incoming_ashramam = PersonRelation.objects.filter(
+                to_person=person,
+                relation__relation_code__in=ASHRAMAM_CODES,
+                status__in=['confirmed', 'pending']
+            ).select_related('from_person', 'relation', 'from_person__linked_user__profile')
+            
+            # Relations where this person is the SOURCE (outgoing - they are the relative to someone)
+            outgoing_ashramam = PersonRelation.objects.filter(
+                from_person=person,
+                relation__relation_code__in=ASHRAMAM_CODES,
+                status__in=['confirmed', 'pending']
+            ).select_related('to_person', 'relation', 'to_person__linked_user__profile')
+            
+            # Get user's language preference
+            language = 'en'
+            if hasattr(request.user, 'profile') and request.user.profile.preferred_language:
+                language = request.user.profile.preferred_language
+            
+            # Format response
+            result = {
+                'person': {
+                    'id': person.id,
+                    'name': person.full_name,
+                    'gender': person.gender
+                },
+                'ashramam_relations': {
+                    'my_relatives': self._format_ashramam_relations(incoming_ashramam, person, 'my_relative', language, request),
+                    'i_am_relative_to': self._format_ashramam_relations(outgoing_ashramam, person, 'i_am_relative', language, request)
+                },
+                'add_options': {
+                    # Standard Ashramam options
+                    'standard_ashramam': self._get_available_ashramam_to_add(person, ASHRAMAM_CODES, language),
+                    
+                    # Custom relation option
+                    'custom_relation': {
+                        'available': True,
+                        'action': 'add_custom_relative',
+                        'endpoint': f'/api/persons/{person.id}/add-custom-relative/',
+                        'method': 'POST',
+                        'description': 'Add any relative by typing relationship name',
+                        'example': {
+                            'relationship_name': 'Great Grandfather',
+                            'full_name': 'Person Name',
+                            'gender': 'M/F (optional)'
+                        },
+                        'icon': '✨',
+                        'label': 'Add Custom Relative',
+                        'subtext': 'Type any relationship like "Great Grandmother", "Father\'s Uncle", etc.'
+                    }
+                },
+                'suggested_custom_relations': self._get_suggested_custom_relations(person, language),
+                'stats': {
+                    'total_ashramam_relations': incoming_ashramam.count() + outgoing_ashramam.count(),
+                    'my_relatives_count': incoming_ashramam.count(),
+                    'i_am_relative_count': outgoing_ashramam.count(),
+                    'available_standard_options': len(self._get_available_ashramam_to_add(person, ASHRAMAM_CODES, language)),
+                    'has_custom_option': True
+                },
+                'note': 'For standard relations, use /relations/ endpoint',
+                'standard_endpoint': f'/api/persons/{person.id}/relations/'
+            }
+            
+            return Response(result)
+            
+        except Exception as e:
+            return self._handle_exception(e, context) 
+        
+        
+    # HELPER METHOD FOR ASHRAMAM   
+    
+    @action(detail=True, methods=['post'], url_path='add-custom-relative')
+    def add_custom_relative(self, request, pk=None):
+        """
+        POST /api/persons/{id}/add-custom-relative/
+        Add a custom relative by entering relationship name and person's name
+        """
+        context = {'person_id': pk, 'user_id': request.user.id, 'action': 'add_custom_relative'}
+        
+        try:
+            person = self.get_object()
+            user_person = Person.objects.filter(linked_user=request.user).first()
+            
+            if not user_person:
+                return Response({
+                    'error': 'You need to create your person profile first',
+                    'code': 'no_person_profile'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate input
+            relationship_name = request.data.get('relationship_name', '').strip()
+            full_name = request.data.get('full_name', '').strip()
+            
+            if not relationship_name:
+                return Response({
+                    'error': 'Relationship name is required',
+                    'code': 'missing_relationship_name'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not full_name:
+                return Response({
+                    'error': 'Person name is required',
+                    'code': 'missing_person_name'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Detect or use provided gender
+            gender = request.data.get('gender')
+            if not gender:
+                gender = self._detect_gender_from_relationship(relationship_name)
+            
+            # Map relationship name to relation code
+            relation_mapping = self._map_custom_relationship(relationship_name, gender)
+            
+            if not relation_mapping['success']:
+                return Response({
+                    'error': relation_mapping['error'],
+                    'code': 'unknown_relationship',
+                    'suggestions': relation_mapping.get('suggestions', [])
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            relation_code = relation_mapping['code']
+            direction = relation_mapping['direction']
+            
+            with transaction.atomic():
+                # Get or create FixedRelation
+                fixed_relation, created = FixedRelation.objects.get_or_create(
+                    relation_code=relation_code,
+                    defaults={
+                        'default_english': relation_mapping['display_name'],
+                        'gender_requirement': gender
+                    }
+                )
+                
+                # Create the new person
+                new_person = Person.objects.create(
+                    full_name=full_name,
+                    gender=gender or relation_mapping.get('gender'),
+                    family=person.family,
+                    linked_user=None,
+                    is_placeholder=True,
+                    is_alive=True,
+                    date_of_birth=request.data.get('date_of_birth'),
+                    date_of_death=request.data.get('date_of_death'),
+                )
+                
+                # Determine relation direction
+                if direction == 'ancestor':
+                    from_person = new_person
+                    to_person = person
+                    direction_desc = f"{new_person.full_name} is ancestor of {person.full_name}"
+                elif direction == 'descendant':
+                    from_person = person
+                    to_person = new_person
+                    direction_desc = f"{person.full_name} is ancestor of {new_person.full_name}"
+                else:
+                    from_person = new_person
+                    to_person = person
+                    direction_desc = f"{new_person.full_name} is {relation_mapping['display_name']} of {person.full_name}"
+                
+                # Validate gender compatibility
+                self._validate_custom_relation_gender(
+                    relation_code=relation_code,
+                    from_person=from_person,
+                    to_person=to_person,
+                    relationship_name=relationship_name
+                )
+                
+                # Determine status
+                status_to_use = 'confirmed' if (not person.linked_user and not new_person.linked_user) else 'pending'
+                
+                # Create relation with metadata
+                person_relation = PersonRelation.objects.create(
+                    from_person=from_person,
+                    to_person=to_person,
+                    relation=fixed_relation,
+                    status=status_to_use,
+                    created_by=request.user,
+                    metadata={
+                        'custom_relationship': relationship_name,
+                        'original_input': relationship_name,
+                        'mapping_confidence': relation_mapping.get('confidence', 'custom')
+                    }
+                )
+                
+                return Response({
+                    'success': True,
+                    'message': f"Added {new_person.full_name} as {relationship_name} of {person.full_name}",
+                    'note': "This relation will now appear in your Ashramam relations list",
+                    'mapping': relation_mapping,
+                    'new_person': {
+                        'id': new_person.id,
+                        'full_name': new_person.full_name,
+                        'gender': new_person.gender,
+                        'is_placeholder': True
+                    },
+                    'relation': {
+                        'id': person_relation.id,
+                        'code': fixed_relation.relation_code,
+                        'label': fixed_relation.default_english,
+                        'status': person_relation.status
+                    },
+                    'view_in_ashramam': f'/api/persons/{person.id}/ashramam-relations/',
+                    'next_actions': [
+                        {
+                            'action': 'view_ashramam',
+                            'label': 'View All Ashramam Relations',
+                            'url': f'/api/persons/{person.id}/ashramam-relations/',
+                            'method': 'GET'
+                        },
+                        {
+                            'action': 'edit_name',
+                            'label': f'Edit Name',
+                            'url': f'/api/persons/{new_person.id}/update_name/'
+                        }
+                    ]
+                }, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            return self._handle_exception(e, context)
+
+    def _map_custom_relationship(self, relationship_name, gender=None):
+        """Map free-text relationship names to relation codes"""
+        relationship_lower = relationship_name.lower().strip()
+        
+        # Comprehensive mapping dictionary
+        RELATIONSHIP_MAP = {
+            # Great grandparents
+            'great grandfather': {'code': 'GREAT_GRANDFATHER', 'direction': 'ancestor', 'gender': 'M'},
+            'great grandpa': {'code': 'GREAT_GRANDFATHER', 'direction': 'ancestor', 'gender': 'M'},
+            'great grandmother': {'code': 'GREAT_GRANDMOTHER', 'direction': 'ancestor', 'gender': 'F'},
+            'great grandma': {'code': 'GREAT_GRANDMOTHER', 'direction': 'ancestor', 'gender': 'F'},
+            
+            # Grandparents
+            'grandfather': {'code': 'THATHA', 'direction': 'ancestor', 'gender': 'M'},
+            'grandpa': {'code': 'THATHA', 'direction': 'ancestor', 'gender': 'M'},
+            'grandmother': {'code': 'PAATI', 'direction': 'ancestor', 'gender': 'F'},
+            'grandma': {'code': 'PAATI', 'direction': 'ancestor', 'gender': 'F'},
+            
+            # Great uncles/aunts
+            'great uncle': {'code': 'GREAT_MAMA', 'direction': 'ancestor', 'gender': 'M'},
+            'great aunt': {'code': 'GREAT_ATHAI', 'direction': 'ancestor', 'gender': 'F'},
+            
+            # Uncles/Aunts
+            'uncle': {'code': 'MAMA', 'direction': 'ancestor', 'gender': 'M'},
+            'aunt': {'code': 'ATHAI', 'direction': 'ancestor', 'gender': 'F'},
+            'maternal uncle': {'code': 'MAMA', 'direction': 'ancestor', 'gender': 'M'},
+            'paternal aunt': {'code': 'ATHAI', 'direction': 'ancestor', 'gender': 'F'},
+            'father\'s brother': {'code': 'PERIYAPPA', 'direction': 'ancestor', 'gender': 'M'},
+            'father\'s elder brother': {'code': 'PERIYAPPA', 'direction': 'ancestor', 'gender': 'M'},
+            'father\'s younger brother': {'code': 'CHITHAPPA', 'direction': 'ancestor', 'gender': 'M'},
+            'father\'s sister': {'code': 'ATHAI', 'direction': 'ancestor', 'gender': 'F'},
+            'mother\'s brother': {'code': 'MAMA', 'direction': 'ancestor', 'gender': 'M'},
+            
+            # Siblings
+            'brother': {'code': 'ANNA' if gender == 'M' else 'THAMBI', 'direction': 'same_generation', 'gender': 'M'},
+            'elder brother': {'code': 'ANNA', 'direction': 'same_generation', 'gender': 'M'},
+            'younger brother': {'code': 'THAMBI', 'direction': 'same_generation', 'gender': 'M'},
+            'sister': {'code': 'AKKA' if gender == 'F' else 'THANGAI', 'direction': 'same_generation', 'gender': 'F'},
+            'elder sister': {'code': 'AKKA', 'direction': 'same_generation', 'gender': 'F'},
+            'younger sister': {'code': 'THANGAI', 'direction': 'same_generation', 'gender': 'F'},
+            
+            # Children
+            'son': {'code': 'MAGAN', 'direction': 'descendant', 'gender': 'M'},
+            'daughter': {'code': 'MAGHAZH', 'direction': 'descendant', 'gender': 'F'},
+            'child': {'code': 'MAGAN' if gender == 'M' else 'MAGHAZH', 'direction': 'descendant'},
+            
+            # Grandchildren
+            'grandson': {'code': 'PERAN', 'direction': 'descendant', 'gender': 'M'},
+            'granddaughter': {'code': 'PETTHI', 'direction': 'descendant', 'gender': 'F'},
+            'grandchild': {'code': 'PERAN' if gender == 'M' else 'PETTHI', 'direction': 'descendant'},
+            
+            # Great grandchildren
+            'great grandson': {'code': 'GREAT_PERAN', 'direction': 'descendant', 'gender': 'M'},
+            'great granddaughter': {'code': 'GREAT_PETTHI', 'direction': 'descendant', 'gender': 'F'},
+            
+            # In-laws
+            'father in law': {'code': 'FATHER_IN_LAW', 'direction': 'ancestor', 'gender': 'M'},
+            'mother in law': {'code': 'MOTHER_IN_LAW', 'direction': 'ancestor', 'gender': 'F'},
+            'brother in law': {'code': 'MAITHUNAR', 'direction': 'same_generation', 'gender': 'M'},
+            'sister in law': {'code': 'MAITHUNI', 'direction': 'same_generation', 'gender': 'F'},
+            'son in law': {'code': 'MARUMAGAN', 'direction': 'descendant', 'gender': 'M'},
+            'daughter in law': {'code': 'MARUMAGAL', 'direction': 'descendant', 'gender': 'F'},
+            
+            # Tamil specific
+            'thatha': {'code': 'THATHA', 'direction': 'ancestor', 'gender': 'M'},
+            'paati': {'code': 'PAATI', 'direction': 'ancestor', 'gender': 'F'},
+            'periyappa': {'code': 'PERIYAPPA', 'direction': 'ancestor', 'gender': 'M'},
+            'chithappa': {'code': 'CHITHAPPA', 'direction': 'ancestor', 'gender': 'M'},
+            'periyamma': {'code': 'PERIYAMMA', 'direction': 'ancestor', 'gender': 'F'},
+            'chithi': {'code': 'CHITHI', 'direction': 'ancestor', 'gender': 'F'},
+            'mama': {'code': 'MAMA', 'direction': 'ancestor', 'gender': 'M'},
+            'athai': {'code': 'ATHAI', 'direction': 'ancestor', 'gender': 'F'},
+            'anna': {'code': 'ANNA', 'direction': 'same_generation', 'gender': 'M'},
+            'akka': {'code': 'AKKA', 'direction': 'same_generation', 'gender': 'F'},
+            'thambi': {'code': 'THAMBI', 'direction': 'same_generation', 'gender': 'M'},
+            'thangai': {'code': 'THANGAI', 'direction': 'same_generation', 'gender': 'F'},
+            'magan': {'code': 'MAGAN', 'direction': 'descendant', 'gender': 'M'},
+            'maghazh': {'code': 'MAGHAZH', 'direction': 'descendant', 'gender': 'F'},
+            'peran': {'code': 'PERAN', 'direction': 'descendant', 'gender': 'M'},
+            'petthi': {'code': 'PETTHI', 'direction': 'descendant', 'gender': 'F'},
+            'athan': {'code': 'ATHAN', 'direction': 'same_generation', 'gender': 'M'},
+            'anni': {'code': 'ANNI', 'direction': 'same_generation', 'gender': 'F'},
+            'marumagan': {'code': 'MARUMAGAN', 'direction': 'descendant', 'gender': 'M'},
+            'marumagal': {'code': 'MARUMAGAL', 'direction': 'descendant', 'gender': 'F'},
+            'maithunar': {'code': 'MAITHUNAR', 'direction': 'same_generation', 'gender': 'M'},
+            'maithuni': {'code': 'MAITHUNI', 'direction': 'same_generation', 'gender': 'F'},
+        }
+        
+        # Try exact match first
+        if relationship_lower in RELATIONSHIP_MAP:
+            mapping = RELATIONSHIP_MAP[relationship_lower].copy()
+            if gender:
+                mapping['gender'] = gender
+            mapping['success'] = True
+            mapping['display_name'] = relationship_name.title()
+            mapping['confidence'] = 'exact'
+            return mapping
+        
+        # Try partial matching
+        suggestions = []
+        for key, value in RELATIONSHIP_MAP.items():
+            if key in relationship_lower or relationship_lower in key:
+                suggestions.append({
+                    'suggestion': key.title(),
+                    'code': value['code'],
+                    'direction': value['direction']
+                })
+        
+        if suggestions:
+            return {
+                'success': False,
+                'error': f"Could not find exact match for '{relationship_name}'",
+                'suggestions': suggestions[:5]
+            }
+        
+        # If no match at all, create a custom code
+        import re
+        custom_code = re.sub(r'[^A-Z]', '', relationship_name.upper().replace(' ', '_'))
+        custom_code = custom_code[:20] if custom_code else 'CUSTOM_RELATIVE'
+        
+        # Determine direction based on keywords
+        direction = 'same_generation'
+        if any(word in relationship_lower for word in ['grand', 'great', 'father', 'mother', 'uncle', 'aunt']):
+            direction = 'ancestor'
+        elif any(word in relationship_lower for word in ['son', 'daughter', 'child', 'grandson', 'granddaughter']):
+            direction = 'descendant'
+        
+        return {
+            'success': True,
+            'code': custom_code,
+            'direction': direction,
+            'gender': gender,
+            'display_name': relationship_name.title(),
+            'confidence': 'custom',
+            'note': 'Created as custom relation'
+        }
+
+    def _detect_gender_from_relationship(self, relationship_name):
+        """Detect gender from relationship name"""
+        relationship_lower = relationship_name.lower()
+        
+        male_indicators = ['father', 'grandfather', 'uncle', 'brother', 'son', 'grandson', 'husband', 'boy', 'male', 'man', 'thatha', 'periyappa', 'chithappa', 'mama', 'anna', 'thambi', 'magan', 'peran', 'athan', 'marumagan', 'maithunar']
+        female_indicators = ['mother', 'grandmother', 'aunt', 'sister', 'daughter', 'granddaughter', 'wife', 'girl', 'female', 'woman', 'paati', 'periyamma', 'chithi', 'athai', 'akka', 'thangai', 'maghazh', 'petthi', 'anni', 'marumagal', 'maithuni']
+        
+        for word in male_indicators:
+            if word in relationship_lower:
+                return 'M'
+        
+        for word in female_indicators:
+            if word in relationship_lower:
+                return 'F'
+        
+        return None
+
+    def _validate_custom_relation_gender(self, relation_code, from_person, to_person, relationship_name):
+        """Validate gender for custom relations"""
+        # Check if relation has gender requirement
+        gender_requirement = self._get_ashramam_gender_requirement(relation_code)
+        
+        if gender_requirement and from_person.gender != gender_requirement:
+            raise GenderValidationError(
+                f"'{relationship_name}' requires the person to be {self._get_gender_display(gender_requirement)}, "
+                f"but you provided {self._get_gender_display(from_person.gender)}"
+            )
+        
+        # Special validations
+        if 'father' in relationship_name.lower() and from_person.gender != 'M':
+            raise GenderValidationError("Father must be male")
+        
+        if 'mother' in relationship_name.lower() and from_person.gender != 'F':
+            raise GenderValidationError("Mother must be female")
+        
+        if 'husband' in relationship_name.lower():
+            if from_person.gender != 'M':
+                raise GenderValidationError("Husband must be male")
+            if to_person.gender != 'F':
+                raise GenderValidationError("Husband can only be added to a female person")
+        
+        if 'wife' in relationship_name.lower():
+            if from_person.gender != 'F':
+                raise GenderValidationError("Wife must be female")
+            if to_person.gender != 'M':
+                raise GenderValidationError("Wife can only be added to a male person")
+        
+    # --------
+    
     @action(detail=True, methods=['get'])
     def connected(self, request, pk=None):
         """Get connected persons with relation labels showing how each connected person relates to the center person."""
@@ -1293,242 +1800,242 @@ class PersonViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return self._handle_exception(e, context)
     
-    @action(detail=False, methods=['post'])
-    def add_relative(self, request):
-        """Add relative with AUTO-GENDER."""
-        context = {'user_id': request.user.id, 'action': 'add_relative'}
-        try:
-            relation = request.data.get("relation_to_me")
+    # @action(detail=False, methods=['post'])
+    # def add_relative(self, request):
+    #     """Add relative with AUTO-GENDER."""
+    #     context = {'user_id': request.user.id, 'action': 'add_relative'}
+    #     try:
+    #         relation = request.data.get("relation_to_me")
             
-            serializer = AddRelativeSerializer(
-                data=request.data,
-                context={'request': request}
-            )
+    #         serializer = AddRelativeSerializer(
+    #             data=request.data,
+    #             context={'request': request}
+    #         )
             
-            if not serializer.is_valid():
-                return Response(
-                    {'errors': serializer.errors, 'code': 'validation_error'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+    #         if not serializer.is_valid():
+    #             return Response(
+    #                 {'errors': serializer.errors, 'code': 'validation_error'},
+    #                 status=status.HTTP_400_BAD_REQUEST
+    #             )
             
-            with transaction.atomic():
-                current_person = self._get_or_create_current_person(request.user)
+    #         with transaction.atomic():
+    #             current_person = self._get_or_create_current_person(request.user)
                 
-                person_data = serializer.validated_data.copy()
-                relation_to_me = person_data.pop('relation_to_me')
-                target_person_id = person_data.pop('target_person_id', None)
+    #             person_data = serializer.validated_data.copy()
+    #             relation_to_me = person_data.pop('relation_to_me')
+    #             target_person_id = person_data.pop('target_person_id', None)
                 
-                if target_person_id:
-                    try:
-                        target_person = Person.objects.get(id=target_person_id)
+    #             if target_person_id:
+    #                 try:
+    #                     target_person = Person.objects.get(id=target_person_id)
                         
-                        if not self._can_add_relative_to_person(request.user, target_person):
-                            raise PermissionDenied(
-                                "You don't have permission to add relatives to this person"
-                            )
+    #                     if not self._can_add_relative_to_person(request.user, target_person):
+    #                         raise PermissionDenied(
+    #                             "You don't have permission to add relatives to this person"
+    #                         )
                         
-                    except Person.DoesNotExist:
-                        raise PersonNotFoundError("Target person not found")
-                else:
-                    target_person = current_person
+    #                 except Person.DoesNotExist:
+    #                     raise PersonNotFoundError("Target person not found")
+    #             else:
+    #                 target_person = current_person
                 
-                fixed_relation = self._get_fixed_relation(relation_to_me, person_data['gender'])
+    #             fixed_relation = self._get_fixed_relation(relation_to_me, person_data['gender'])
                 
-                # Check for duplicate exclusive relations
-                exclusive_relations = ['FATHER', 'MOTHER', 'HUSBAND', 'WIFE']
+    #             # Check for duplicate exclusive relations
+    #             exclusive_relations = ['FATHER', 'MOTHER', 'HUSBAND', 'WIFE']
                 
-                if relation_to_me.upper() in exclusive_relations:
-                    relation_code = relation_to_me.upper()
+    #             if relation_to_me.upper() in exclusive_relations:
+    #                 relation_code = relation_to_me.upper()
                     
-                    if relation_code in ['FATHER', 'MOTHER']:
-                        exists = PersonRelation.objects.filter(
-                            to_person=target_person,
-                            relation__relation_code=relation_code,
-                            status__in=['confirmed', 'pending']
-                        ).exists()
+    #                 if relation_code in ['FATHER', 'MOTHER']:
+    #                     exists = PersonRelation.objects.filter(
+    #                         to_person=target_person,
+    #                         relation__relation_code=relation_code,
+    #                         status__in=['confirmed', 'pending']
+    #                     ).exists()
                         
-                        if exists:
-                            raise DuplicateRelationError(
-                                f'{target_person.full_name} already has a {relation_code.lower()}'
-                            )
+    #                     if exists:
+    #                         raise DuplicateRelationError(
+    #                             f'{target_person.full_name} already has a {relation_code.lower()}'
+    #                         )
                             
-                    elif relation_code in ['HUSBAND', 'WIFE']:
-                        exists = PersonRelation.objects.filter(
-                            Q(from_person=target_person) | Q(to_person=target_person),
-                            relation__relation_code__in=['HUSBAND', 'WIFE', 'SPOUSE'],
-                            status__in=['confirmed', 'pending']
-                        ).exists()
+    #                 elif relation_code in ['HUSBAND', 'WIFE']:
+    #                     exists = PersonRelation.objects.filter(
+    #                         Q(from_person=target_person) | Q(to_person=target_person),
+    #                         relation__relation_code__in=['HUSBAND', 'WIFE', 'SPOUSE'],
+    #                         status__in=['confirmed', 'pending']
+    #                     ).exists()
                         
-                        if exists:
-                            raise DuplicateRelationError(
-                                f'{target_person.full_name} already has a spouse'
-                            )
+    #                     if exists:
+    #                         raise DuplicateRelationError(
+    #                             f'{target_person.full_name} already has a spouse'
+    #                         )
                 
-                new_person = Person.objects.create(
-                    full_name=person_data['full_name'],
-                    gender=person_data['gender'],
-                    date_of_birth=person_data.get('date_of_birth'),
-                    date_of_death=person_data.get('date_of_death'),
-                    family=target_person.family,
-                    linked_user=None,
-                    is_alive=not bool(person_data.get('date_of_death')),
-                    is_placeholder=True
-                )
+    #             new_person = Person.objects.create(
+    #                 full_name=person_data['full_name'],
+    #                 gender=person_data['gender'],
+    #                 date_of_birth=person_data.get('date_of_birth'),
+    #                 date_of_death=person_data.get('date_of_death'),
+    #                 family=target_person.family,
+    #                 linked_user=None,
+    #                 is_alive=not bool(person_data.get('date_of_death')),
+    #                 is_placeholder=True
+    #             )
                 
-                # Determine relation direction
-                if relation_to_me.upper() in ['FATHER', 'MOTHER', 'PARENT']:
-                    from_person = new_person
-                    to_person = target_person
-                    relation_direction = 'parent_to_child'
+    #             # Determine relation direction
+    #             if relation_to_me.upper() in ['FATHER', 'MOTHER', 'PARENT']:
+    #                 from_person = new_person
+    #                 to_person = target_person
+    #                 relation_direction = 'parent_to_child'
                     
-                elif relation_to_me.upper() in ['SON', 'DAUGHTER', 'CHILD']:
-                    from_person = new_person
-                    to_person = target_person
-                    relation_direction = 'child_to_parent'
+    #             elif relation_to_me.upper() in ['SON', 'DAUGHTER', 'CHILD']:
+    #                 from_person = new_person
+    #                 to_person = target_person
+    #                 relation_direction = 'child_to_parent'
                     
-                elif relation_to_me.upper() == 'HUSBAND':
-                    if not target_person.gender:
-                        raise GenderValidationError(
-                            f'{target_person.full_name} does not have a gender specified'
-                        )
+    #             elif relation_to_me.upper() == 'HUSBAND':
+    #                 if not target_person.gender:
+    #                     raise GenderValidationError(
+    #                         f'{target_person.full_name} does not have a gender specified'
+    #                     )
                     
-                    if target_person.gender != 'F':
-                        raise GenderValidationError(
-                            'Husband can only be added to a female person'
-                        )
+    #                 if target_person.gender != 'F':
+    #                     raise GenderValidationError(
+    #                         'Husband can only be added to a female person'
+    #                     )
                     
-                    if person_data['gender'] != 'M':
-                        raise GenderValidationError('Husband must be male')
+    #                 if person_data['gender'] != 'M':
+    #                     raise GenderValidationError('Husband must be male')
                     
-                    from_person = new_person
-                    to_person = target_person
-                    relation_direction = 'spouse'
+    #                 from_person = new_person
+    #                 to_person = target_person
+    #                 relation_direction = 'spouse'
                     
-                elif relation_to_me.upper() == 'WIFE':
-                    if target_person.gender != 'M':
-                        raise GenderValidationError(
-                            'Wife can only be added to a male person'
-                        )
-                    from_person = new_person
-                    to_person = target_person
-                    relation_direction = 'spouse'
+    #             elif relation_to_me.upper() == 'WIFE':
+    #                 if target_person.gender != 'M':
+    #                     raise GenderValidationError(
+    #                         'Wife can only be added to a male person'
+    #                     )
+    #                 from_person = new_person
+    #                 to_person = target_person
+    #                 relation_direction = 'spouse'
                     
-                elif relation_to_me.upper() in ['BROTHER', 'SISTER', 'SIBLING',
-                                            'ELDER_BROTHER', 'YOUNGER_BROTHER',
-                                            'ELDER_SISTER', 'YOUNGER_SISTER']:
-                    from_person = new_person
-                    to_person = target_person
-                    relation_direction = 'sibling'
+    #             elif relation_to_me.upper() in ['BROTHER', 'SISTER', 'SIBLING',
+    #                                         'ELDER_BROTHER', 'YOUNGER_BROTHER',
+    #                                         'ELDER_SISTER', 'YOUNGER_SISTER']:
+    #                 from_person = new_person
+    #                 to_person = target_person
+    #                 relation_direction = 'sibling'
                     
-                else:
-                    from_person = new_person
-                    to_person = target_person
-                    relation_direction = 'general'
+    #             else:
+    #                 from_person = new_person
+    #                 to_person = target_person
+    #                 relation_direction = 'general'
                 
-                status_to_use = 'confirmed' if (
-                    not target_person.linked_user and not new_person.linked_user
-                ) else 'pending'
+    #             status_to_use = 'confirmed' if (
+    #                 not target_person.linked_user and not new_person.linked_user
+    #             ) else 'pending'
                 
-                try:
-                    person_relation = PersonRelation.objects.create(
-                        from_person=from_person,
-                        to_person=to_person,
-                        relation=fixed_relation,
-                        status=status_to_use,
-                        created_by=request.user
-                    )
-                except DjangoValidationError as e:
-                    raise GenderValidationError(str(e))
+    #             try:
+    #                 person_relation = PersonRelation.objects.create(
+    #                     from_person=from_person,
+    #                     to_person=to_person,
+    #                     relation=fixed_relation,
+    #                     status=status_to_use,
+    #                     created_by=request.user
+    #                 )
+    #             except DjangoValidationError as e:
+    #                 raise GenderValidationError(str(e))
                 
-                response_data = {
-                    'success': True,
-                    'message': f"Added {new_person.full_name} as {target_person.full_name}'s {relation_to_me.lower()}",
-                    'person': {
-                        'id': new_person.id,
-                        'full_name': new_person.full_name,
-                        'gender': new_person.get_gender_display(),
-                        'is_placeholder': new_person.linked_user is None,
-                        'family_id': new_person.family_id
-                    },
-                    'target_person': {
-                        'id': target_person.id,
-                        'full_name': target_person.full_name,
-                        'is_current_user': target_person == current_person
-                    },
-                    'relation': {
-                        'id': person_relation.id,
-                        'relation_type': fixed_relation.relation_code,
-                        'relation_label': fixed_relation.default_english,
-                        'status': person_relation.status,
-                        'direction': f"{from_person.full_name} → {to_person.full_name}",
-                        'auto_confirmed': status_to_use == 'confirmed'
-                    },
-                    'next_actions': []
-                }
+    #             response_data = {
+    #                 'success': True,
+    #                 'message': f"Added {new_person.full_name} as {target_person.full_name}'s {relation_to_me.lower()}",
+    #                 'person': {
+    #                     'id': new_person.id,
+    #                     'full_name': new_person.full_name,
+    #                     'gender': new_person.get_gender_display(),
+    #                     'is_placeholder': new_person.linked_user is None,
+    #                     'family_id': new_person.family_id
+    #                 },
+    #                 'target_person': {
+    #                     'id': target_person.id,
+    #                     'full_name': target_person.full_name,
+    #                     'is_current_user': target_person == current_person
+    #                 },
+    #                 'relation': {
+    #                     'id': person_relation.id,
+    #                     'relation_type': fixed_relation.relation_code,
+    #                     'relation_label': fixed_relation.default_english,
+    #                     'status': person_relation.status,
+    #                     'direction': f"{from_person.full_name} → {to_person.full_name}",
+    #                     'auto_confirmed': status_to_use == 'confirmed'
+    #                 },
+    #                 'next_actions': []
+    #             }
                 
-                if new_person.linked_user is None:
-                    response_data['next_actions'].extend([
-                        {
-                            'action': 'edit_name',
-                            'label': 'Edit Name',
-                            'method': 'PUT',
-                            'url': f'/api/persons/{new_person.id}/update_name/'
-                        },
-                        {
-                            'action': 'connect',
-                            'label': 'Connect to Real User',
-                            'method': 'POST',
-                            'url': f'/api/persons/{new_person.id}/send_invitation/'
-                        },
-                        {
-                            'action': 'add_more_relatives',
-                            'label': 'Add More Relatives',
-                            'method': 'GET',
-                            'url': f'/api/persons/{new_person.id}/next_flow/'
-                        }
-                    ])
+    #             if new_person.linked_user is None:
+    #                 response_data['next_actions'].extend([
+    #                     {
+    #                         'action': 'edit_name',
+    #                         'label': 'Edit Name',
+    #                         'method': 'PUT',
+    #                         'url': f'/api/persons/{new_person.id}/update_name/'
+    #                     },
+    #                     {
+    #                         'action': 'connect',
+    #                         'label': 'Connect to Real User',
+    #                         'method': 'POST',
+    #                         'url': f'/api/persons/{new_person.id}/send_invitation/'
+    #                     },
+    #                     {
+    #                         'action': 'add_more_relatives',
+    #                         'label': 'Add More Relatives',
+    #                         'method': 'GET',
+    #                         'url': f'/api/persons/{new_person.id}/next_flow/'
+    #                     }
+    #                 ])
                 
-                return Response(response_data, status=status.HTTP_201_CREATED)
+    #             return Response(response_data, status=status.HTTP_201_CREATED)
                 
-        except Exception as e:
-            return self._handle_exception(e, context)
+    #     except Exception as e:
+    #         return self._handle_exception(e, context)
     
-    def _can_add_relative_to_person(self, user, target_person: Person) -> bool:
-        """Check if user can add relatives to target person."""
-        try:
-            user_person = Person.objects.filter(linked_user=user).first()
-            if not user_person:
-                return False
+    # def _can_add_relative_to_person(self, user, target_person: Person) -> bool:
+    #     """Check if user can add relatives to target person."""
+    #     try:
+    #         user_person = Person.objects.filter(linked_user=user).first()
+    #         if not user_person:
+    #             return False
             
-            # Case 1: User is adding to themselves
-            if target_person.linked_user == user:
-                return True
+    #         # Case 1: User is adding to themselves
+    #         if target_person.linked_user == user:
+    #             return True
             
-            # Case 2: Target person is in user's family
-            if target_person.family_id == user_person.family_id:
-                if target_person.linked_user is None:
-                    return True
-                elif target_person.linked_user == user:
-                    return True
+    #         # Case 2: Target person is in user's family
+    #         if target_person.family_id == user_person.family_id:
+    #             if target_person.linked_user is None:
+    #                 return True
+    #             elif target_person.linked_user == user:
+    #                 return True
             
-            # Case 3: Target person is a placeholder in different family
-            if target_person.linked_user is None:
-                is_connected = PersonRelation.objects.filter(
-                    Q(from_person=target_person, to_person=user_person) |
-                    Q(from_person=user_person, to_person=target_person),
-                    status='confirmed'
-                ).exists()
+    #         # Case 3: Target person is a placeholder in different family
+    #         if target_person.linked_user is None:
+    #             is_connected = PersonRelation.objects.filter(
+    #                 Q(from_person=target_person, to_person=user_person) |
+    #                 Q(from_person=user_person, to_person=target_person),
+    #                 status='confirmed'
+    #             ).exists()
                 
-                return not is_connected
+    #             return not is_connected
             
-            return False
+    #         return False
             
-        except Exception as e:
-            self.logger.error(
-                f"Error checking permission to add relative: {str(e)}",
-                extra={'user_id': user.id, 'target_person_id': target_person.id}
-            )
-            return False
+    #     except Exception as e:
+    #         self.logger.error(
+    #             f"Error checking permission to add relative: {str(e)}",
+    #             extra={'user_id': user.id, 'target_person_id': target_person.id}
+    #         )
+    #         return False
     
    
     
@@ -1733,23 +2240,11 @@ class PersonViewSet(viewsets.ModelViewSet):
     def _validate_target_user_gender(self, relation_to_me, target_user_gender, inviter_gender):
         """
         Validate if the target user's gender matches what the relation requires.
-        
-        Args:
-            relation_to_me: The relation type (FATHER, MOTHER, etc.)
-            target_user_gender: Gender of the user being invited
-            inviter_gender: Gender of the person sending invitation
-            
-        Returns:
-            dict: {
-                'valid': bool,
-                'error': str (if invalid),
-                'code': str (error code),
-                'details': dict
-            }
+        Now includes Ashramam relations.
         """
         relation_code = relation_to_me.upper()
         
-        # Gender requirements for each relation
+        # Gender requirements for ALL relations (including Ashramam)
         gender_requirements = {
             # Parent-child relations
             'FATHER': {'required': 'M', 'description': 'Father must be male'},
@@ -1768,6 +2263,32 @@ class PersonViewSet(viewsets.ModelViewSet):
             'SISTER': {'required': 'F', 'description': 'Sister must be female'},
             'ELDER_SISTER': {'required': 'F', 'description': 'Elder sister must be female'},
             'YOUNGER_SISTER': {'required': 'F', 'description': 'Younger sister must be female'},
+            
+            # ASHRAMAM RELATIONS
+            'THATHA': {'required': 'M', 'description': 'Thatha (grandfather) must be male'},
+            'PAATI': {'required': 'F', 'description': 'Paati (grandmother) must be female'},
+            'PERIYAPPA': {'required': 'M', 'description': 'Periyappa (father\'s elder brother) must be male'},
+            'CHITHAPPA': {'required': 'M', 'description': 'Chithappa (father\'s younger brother) must be male'},
+            'PERIYAMMA': {'required': 'F', 'description': 'Periyamma must be female'},
+            'CHITHI': {'required': 'F', 'description': 'Chithi must be female'},
+            'MAMA': {'required': 'M', 'description': 'Mama (mother\'s brother) must be male'},
+            'ATHAI': {'required': 'F', 'description': 'Athai (father\'s sister) must be female'},
+            'ANNA': {'required': 'M', 'description': 'Anna (elder brother) must be male'},
+            'AKKA': {'required': 'F', 'description': 'Akka (elder sister) must be female'},
+            'THAMBI': {'required': 'M', 'description': 'Thambi (younger brother) must be male'},
+            'THANGAI': {'required': 'F', 'description': 'Thangai (younger sister) must be female'},
+            'MAGAN': {'required': 'M', 'description': 'Magan (son) must be male'},
+            'MAGHAZH': {'required': 'F', 'description': 'Maghazh (daughter) must be female'},
+            'PERAN': {'required': 'M', 'description': 'Peran (grandson) must be male'},
+            'PETTHI': {'required': 'F', 'description': 'Petthi (granddaughter) must be female'},
+            'ATHAN': {'required': 'M', 'description': 'Athan (brother-in-law) must be male'},
+            'ANNI': {'required': 'F', 'description': 'Anni (sister-in-law) must be female'},
+            'MARUMAGAN': {'required': 'M', 'description': 'Marumagan must be male'},
+            'MARUMAGAL': {'required': 'F', 'description': 'Marumagal must be female'},
+            'MAITHUNAR': {'required': 'M', 'description': 'Maithunar must be male'},
+            'MAITHUNI': {'required': 'F', 'description': 'Maithuni must be female'},
+            'KOLUNTHANAR': {'required': 'M', 'description': 'Kolunthanar must be male'},
+            'KOLUNTHIYAZH': {'required': 'F', 'description': 'Kolunthiyazh must be female'},
         }
         
         # Check if this relation has gender requirements
@@ -1823,22 +2344,10 @@ class PersonViewSet(viewsets.ModelViewSet):
         
         return None
 
-    def _validate_invitation_creation(self, placeholder, inviter, user,relation_to_me):
+    def _validate_invitation_creation(self, placeholder, inviter, user, relation_to_me):
         """
         Validate gender compatibility when creating an invitation.
-        
-        Args:
-            placeholder: The Person object being invited
-            inviter: The Person object of the inviter
-            user: The user creating the invitation
-            
-        Returns:
-            dict: {
-                'valid': bool,
-                'error': str (if invalid),
-                'code': str (error code),
-                'details': dict (additional info)
-            }
+        Now includes Ashramam relations.
         """
         try:
             # ===== STEP 1: Check if placeholder has gender =====
@@ -1892,6 +2401,26 @@ class PersonViewSet(viewsets.ModelViewSet):
                     'SISTER': {'required': 'F', 'description': 'Sister must be female'},
                     'ELDER_SISTER': {'required': 'F', 'description': 'Elder sister must be female'},
                     'YOUNGER_SISTER': {'required': 'F', 'description': 'Younger sister must be female'},
+                    
+                    # ASHRAMAM RELATIONS
+                    'THATHA': {'required': 'M', 'description': 'Thatha must be male'},
+                    'PAATI': {'required': 'F', 'description': 'Paati must be female'},
+                    'PERIYAPPA': {'required': 'M', 'description': 'Periyappa must be male'},
+                    'CHITHAPPA': {'required': 'M', 'description': 'Chithappa must be male'},
+                    'PERIYAMMA': {'required': 'F', 'description': 'Periyamma must be female'},
+                    'CHITHI': {'required': 'F', 'description': 'Chithi must be female'},
+                    'MAMA': {'required': 'M', 'description': 'Mama must be male'},
+                    'ATHAI': {'required': 'F', 'description': 'Athai must be female'},
+                    'ANNA': {'required': 'M', 'description': 'Anna must be male'},
+                    'AKKA': {'required': 'F', 'description': 'Akka must be female'},
+                    'THAMBI': {'required': 'M', 'description': 'Thambi must be male'},
+                    'THANGAI': {'required': 'F', 'description': 'Thangai must be female'},
+                    'MAGAN': {'required': 'M', 'description': 'Magan must be male'},
+                    'MAGHAZH': {'required': 'F', 'description': 'Maghazh must be female'},
+                    'PERAN': {'required': 'M', 'description': 'Peran must be male'},
+                    'PETTHI': {'required': 'F', 'description': 'Petthi must be female'},
+                    'ATHAN': {'required': 'M', 'description': 'Athan must be male'},
+                    'ANNI': {'required': 'F', 'description': 'Anni must be female'},
                 }
                 
                 # Check if this relation has gender requirements
@@ -2251,18 +2780,7 @@ class PersonViewSet(viewsets.ModelViewSet):
     def _validate_invitation_gender(self, invitation, user):
         """
         Validate gender compatibility for invitation acceptance.
-        
-        Args:
-            invitation: The Invitation object being accepted
-            user: The user accepting the invitation
-            
-        Returns:
-            dict: {
-                'valid': bool,
-                'error': str (if invalid),
-                'code': str (error code),
-                'details': dict (additional info)
-            }
+        Now includes Ashramam relations.
         """
         try:
             placeholder = invitation.person
@@ -2299,8 +2817,9 @@ class PersonViewSet(viewsets.ModelViewSet):
             if invitation.original_relation:
                 relation_code = invitation.original_relation.relation_code
                 
-                # Gender-specific relation requirements
+                # Gender-specific relation requirements (including Ashramam)
                 gender_specific_relations = {
+                    # Standard relations
                     'FATHER': 'M',
                     'MOTHER': 'F',
                     'SON': 'M',
@@ -2313,6 +2832,36 @@ class PersonViewSet(viewsets.ModelViewSet):
                     'ELDER_SISTER': 'F',
                     'YOUNGER_SISTER': 'F',
                     'SISTER': 'F',
+                    'GRANDFATHER': 'M',
+                    'GRANDMOTHER': 'F',
+                    'GRANDSON': 'M',
+                    'GRANDDAUGHTER': 'F',
+                    
+                    # ASHRAMAM RELATIONS
+                    'THATHA': 'M',
+                    'PAATI': 'F',
+                    'PERIYAPPA': 'M',
+                    'CHITHAPPA': 'M',
+                    'PERIYAMMA': 'F',
+                    'CHITHI': 'F',
+                    'MAMA': 'M',
+                    'ATHAI': 'F',
+                    'ANNA': 'M',
+                    'AKKA': 'F',
+                    'THAMBI': 'M',
+                    'THANGAI': 'F',
+                    'MAGAN': 'M',
+                    'MAGHAZH': 'F',
+                    'PERAN': 'M',
+                    'PETTHI': 'F',
+                    'ATHAN': 'M',
+                    'ANNI': 'F',
+                    'MARUMAGAN': 'M',
+                    'MARUMAGAL': 'F',
+                    'MAITHUNAR': 'M',
+                    'MAITHUNI': 'F',
+                    'KOLUNTHANAR': 'M',
+                    'KOLUNTHIYAZH': 'F',
                 }
                 
                 if relation_code in gender_specific_relations:
@@ -2455,18 +3004,18 @@ class PersonViewSet(viewsets.ModelViewSet):
         """Handle ALL add relative actions from next flow."""
         context = {'person_id': pk, 'user_id': request.user.id, 'action': 'add_relative_action'}
         
-        # ========== DEBUG INFORMATION ==========
-        print(f"\n========== ADD RELATIVE ACTION DEBUG ==========")
-        print(f"Request user: {request.user.id} - {request.user}")
-        print(f"Looking for person with ID: {pk}")
-        print(f"Request data: {request.data}")
-        print(f"Request method: {request.method}")
-        print(f"Request path: {request.path}")
+        # # ========== DEBUG INFORMATION ==========
+        # print(f"\n========== ADD RELATIVE ACTION DEBUG ==========")
+        # print(f"Request user: {request.user.id} - {request.user}")
+        # print(f"Looking for person with ID: {pk}")
+        # print(f"Request data: {request.data}")
+        # print(f"Request method: {request.method}")
+        # print(f"Request path: {request.path}")
         
         try:
             # Get current user's person record
             user_person = Person.objects.filter(linked_user=request.user).first()
-            print(f"Current user's person: {user_person.id if user_person else 'None'} - {user_person.full_name if user_person else 'None'}")
+            # print(f"Current user's person: {user_person.id if user_person else 'None'} - {user_person.full_name if user_person else 'None'}")
             
             # Check if user has a person record
             if not user_person:
@@ -2480,14 +3029,14 @@ class PersonViewSet(viewsets.ModelViewSet):
             # Check if the person exists at all in the database (bypassing permissions)
             try:
                 person_exists = Person.objects.get(id=pk)
-                print(f"Person with ID {pk} EXISTS in database: {person_exists.full_name}")
-                print(f"  - Family ID: {person_exists.family_id}")
-                print(f"  - Family name: {person_exists.family.family_name if person_exists.family else 'None'}")
-                print(f"  - Linked user: {person_exists.linked_user_id}")
-                print(f"  - Gender: {person_exists.gender}")
-                print(f"  - Is placeholder: {person_exists.is_placeholder}")
+                # print(f"Person with ID {pk} EXISTS in database: {person_exists.full_name}")
+                # print(f"  - Family ID: {person_exists.family_id}")
+                # print(f"  - Family name: {person_exists.family.family_name if person_exists.family else 'None'}")
+                # print(f"  - Linked user: {person_exists.linked_user_id}")
+                # print(f"  - Gender: {person_exists.gender}")
+                # print(f"  - Is placeholder: {person_exists.is_placeholder}")
             except Person.DoesNotExist:
-                print(f"❌ Person with ID {pk} DOES NOT EXIST in database at all")
+                # print(f"❌ Person with ID {pk} DOES NOT EXIST in database at all")
                 return Response({
                     'error': f'Person with ID {pk} not found in database',
                     'code': 'person_not_found',
@@ -2504,10 +3053,10 @@ class PersonViewSet(viewsets.ModelViewSet):
             print(f"Accessible person IDs for user ({len(accessible_ids)} total): {accessible_ids[:20]}")  # Show first 20
             
             if int(pk) not in accessible_ids:
-                print(f"❌ Person {pk} exists but user CANNOT access it")
-                print(f"  - User's family ID: {user_person.family_id}")
-                print(f"  - Person's family ID: {person_exists.family_id}")
-                print(f"  - Same family? {user_person.family_id == person_exists.family_id}")
+                # print(f"❌ Person {pk} exists but user CANNOT access it")
+                # print(f"  - User's family ID: {user_person.family_id}")
+                # print(f"  - Person's family ID: {person_exists.family_id}")
+                # print(f"  - Same family? {user_person.family_id == person_exists.family_id}")
                 
                 # Check if they're connected
                 is_connected = PersonRelation.objects.filter(
@@ -2515,7 +3064,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                     Q(from_person_id=user_person.id, to_person_id=pk),
                     status='confirmed'
                 ).exists()
-                print(f"  - Is connected to user? {is_connected}")
+                # print(f"  - Is connected to user? {is_connected}")
                 
                 # Check pending relations
                 is_pending = PersonRelation.objects.filter(
@@ -2523,7 +3072,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                     Q(from_person_id=user_person.id, to_person_id=pk),
                     status='pending'
                 ).exists()
-                print(f"  - Has pending relation? {is_pending}")
+                # print(f"  - Has pending relation? {is_pending}")
                 
                 return Response({
                     'error': f'You do not have permission to add relatives to this person',
@@ -2541,15 +3090,15 @@ class PersonViewSet(viewsets.ModelViewSet):
             # If we get here, try to get the person through the normal method
             try:
                 person = self.get_object()
-                print(f"✅ Successfully got person through get_object(): {person.id} - {person.full_name}")
+                # print(f"✅ Successfully got person through get_object(): {person.id} - {person.full_name}")
             except Exception as e:
-                print(f"❌ get_object() failed: {str(e)}")
+                # print(f"❌ get_object() failed: {str(e)}")
                 import traceback
                 traceback.print_exc()
                 raise
             
-            print(f"✅ Continuing with person: {person.id} - {person.full_name}")
-            print(f"===============================================\n")
+            # print(f"✅ Continuing with person: {person.id} - {person.full_name}")
+            # print(f"===============================================\n")
             
             # ========== END DEBUG ==========
             
@@ -2589,17 +3138,17 @@ class PersonViewSet(viewsets.ModelViewSet):
                 # ===== ALL 23 ASHRAMAM RELATIONS =====
                 'add_maithunar':{'code':'MAITHUNAR','gender':'M','direction':'parent','label':'Maithunar'},
                 # Grandparents
-                'add_thatha':      {'code': 'THATHA',      'gender': 'M', 'direction': 'parent', 'label': 'Thatha'},
-                'add_paati':       {'code': 'PAATI',       'gender': 'F', 'direction': 'parent', 'label': 'Paati'},
+                'add_thatha':      {'code': 'THATHA',      'gender': 'M', 'direction': 'grandparent', 'label': 'Thatha'},
+                'add_paati':       {'code': 'PAATI',       'gender': 'F', 'direction': 'grandparent', 'label': 'Paati'},
 
                 # Paternal uncles/aunts
-                'add_periyappa':   {'code': 'PERIYAPPA',   'gender': 'M', 'direction': 'parent', 'label': 'Periyappa'},
-                'add_chithappa':   {'code': 'CHITHAPPA',   'gender': 'M', 'direction': 'parent', 'label': 'Chithappa'},
-                'add_periyamma':   {'code': 'PERIYAMMA',   'gender': 'F', 'direction': 'parent', 'label': 'Periyamma'},
-                'add_chithi':      {'code': 'CHITHI',      'gender': 'F', 'direction': 'parent', 'label': 'Chithi'},
+                'add_periyappa':   {'code': 'PERIYAPPA',   'gender': 'M', 'direction': 'other', 'label': 'Periyappa'},
+                'add_chithappa':   {'code': 'CHITHAPPA',   'gender': 'M', 'direction': 'other', 'label': 'Chithappa'},
+                'add_periyamma':   {'code': 'PERIYAMMA',   'gender': 'F', 'direction': 'other', 'label': 'Periyamma'},
+                'add_chithi':      {'code': 'CHITHI',      'gender': 'F', 'direction': 'other', 'label': 'Chithi'},
 
                 # Maternal uncles/aunts
-                'add_mama':        {'code': 'MAMA',        'gender': 'M', 'direction': 'parent', 'label': 'Mama'},
+                'add_mama':        {'code': 'MAMA',        'gender': 'M', 'direction': 'other', 'label': 'Mama'},
                 'add_athai':       {'code': 'ATHAI',       'gender': 'F', 'direction': 'parent', 'label': 'Athai'},
 
                 # In‑laws (spouse's side)
@@ -2870,7 +3419,7 @@ class PersonViewSet(viewsets.ModelViewSet):
         except ValidationError as e:
             return self._handle_exception(e, context)
         except Exception as e:
-            print(f"Unexpected error: {str(e)}")
+            # print(f"Unexpected error: {str(e)}")
             import traceback
             traceback.print_exc()
             return self._handle_exception(e, context)
@@ -2880,6 +3429,27 @@ class PersonViewSet(viewsets.ModelViewSet):
         """
         Validate gender compatibility for relations.
         """
+        
+        ashramam_gender_map = {
+        'THATHA': 'M', 'PAATI': 'F',
+        'PERIYAPPA': 'M', 'CHITHAPPA': 'M',
+        'PERIYAMMA': 'F', 'CHITHI': 'F',
+        'MAMA': 'M', 'ATHAI': 'F',
+        'ANNA': 'M', 'AKKA': 'F',
+        'THAMBI': 'M', 'THANGAI': 'F',
+        'MAGAN': 'M', 'MAGHAZH': 'F',
+        'PERAN': 'M', 'PETTHI': 'F',
+        'ATHAN': 'M', 'ANNI': 'F',
+        'MARUMAGAN': 'M', 'MARUMAGAL': 'F',
+    }
+        
+        if relation_code in ashramam_gender_map:
+            required_gender = ashramam_gender_map[relation_code]
+            if from_person.gender != required_gender:
+                raise GenderValidationError(
+                    f'{action.replace("add_", "").title()} must be {self._get_gender_display(required_gender)}'
+                )
+        
         # Parent-child validations
         if action == 'add_father':
             if from_person.gender != 'M':
@@ -6275,35 +6845,44 @@ class AcceptInvitationView(APIView):
         Get the correct relation code from the accepter's perspective.
         
         When someone invites you as their GRANDFATHER, you are actually their GRANDSON.
+        When someone invites you as their THATHA (grandfather), you are their PERAN (grandson).
         This function maps the invitation relation to the correct relation from accepter to inviter.
         
         Args:
-            invitation_relation_code: The relation in the invitation (e.g., 'GRANDFATHER')
+            invitation_relation_code: The relation in the invitation (e.g., 'GRANDFATHER', 'THATHA')
             inviter_gender: Gender of the person who sent the invitation
             accepter_gender: Gender of the person accepting the invitation
             
         Returns:
             str: Correct relation code from accepter's perspective
         """
-        # Map invitation relations to accepter's relations
+        
+        # COMPLETE INVERSION MAP including all Ashramam relations
         INVERSION_MAP = {
+            # ===== STANDARD RELATIONS =====
             # Parent-child inversions
             'FATHER': 'SON',
             'MOTHER': 'DAUGHTER',
             'SON': 'FATHER',
             'DAUGHTER': 'MOTHER',
+            'PARENT': 'CHILD',
+            'CHILD': 'PARENT',
             
             # Grandparent-grandchild inversions
             'GRANDFATHER': 'GRANDSON',
             'GRANDMOTHER': 'GRANDDAUGHTER',
             'GRANDSON': 'GRANDFATHER',
             'GRANDDAUGHTER': 'GRANDMOTHER',
+            'GRANDPARENT': 'GRANDCHILD',
+            'GRANDCHILD': 'GRANDPARENT',
             
             # Great-grandparent inversions
             'GREAT_GRANDFATHER': 'GREAT_GRANDSON',
             'GREAT_GRANDMOTHER': 'GREAT_GRANDDAUGHTER',
             'GREAT_GRANDSON': 'GREAT_GRANDFATHER',
             'GREAT_GRANDDAUGHTER': 'GREAT_GRANDMOTHER',
+            'GREAT_GRANDPARENT': 'GREAT_GRANDCHILD',
+            'GREAT_GRANDCHILD': 'GREAT_GRANDPARENT',
             
             # Sibling inversions
             'BROTHER': 'BROTHER',
@@ -6312,32 +6891,183 @@ class AcceptInvitationView(APIView):
             'YOUNGER_BROTHER': 'ELDER_BROTHER',
             'ELDER_SISTER': 'YOUNGER_SISTER',
             'YOUNGER_SISTER': 'ELDER_SISTER',
+            'SIBLING': 'SIBLING',
             
             # Spouse inversions
             'HUSBAND': 'WIFE',
             'WIFE': 'HUSBAND',
             'SPOUSE': 'SPOUSE',
+            
+            # ===== ASHRAMAM RELATIONS =====
+            
+            # Grandparents (Paternal & Maternal) - INVERSIONS
+            # Thatha (grandfather) -> Peran (grandson) or Petthi (granddaughter)
+            'THATHA': {
+                'M': 'PERAN',
+                'F': 'PETTHI'
+            },
+            # Paati (grandmother) -> Peran (grandson) or Petthi (granddaughter)
+            'PAATI': {
+                'M': 'PERAN',
+                'F': 'PETTHI'
+            },
+            
+            # Grandchildren - INVERSIONS
+            # Peran (grandson) -> Thatha (grandfather) or Paati (grandmother)
+            'PERAN': {
+                'M': 'THATHA',
+                'F': 'PAATI'
+            },
+            # Petthi (granddaughter) -> Thatha (grandfather) or Paati (grandmother)
+            'PETTHI': {
+                'M': 'THATHA',
+                'F': 'PAATI'
+            },
+            
+            # Paternal Uncles/Aunts - INVERSIONS
+            # Periyappa (father's elder brother) -> Magan (son) or Maghazh (daughter)
+            'PERIYAPPA': {
+                'M': 'MAGAN',
+                'F': 'MAGHAZH'
+            },
+            # Chithappa (father's younger brother) -> Magan (son) or Maghazh (daughter)
+            'CHITHAPPA': {
+                'M': 'MAGAN',
+                'F': 'MAGHAZH'
+            },
+            # Periyamma (father's elder brother's wife) -> Magan (son) or Maghazh (daughter)
+            'PERIYAMMA': {
+                'M': 'MAGAN',
+                'F': 'MAGHAZH'
+            },
+            # Chithi (father's younger brother's wife) -> Magan (son) or Maghazh (daughter)
+            'CHITHI': {
+                'M': 'MAGAN',
+                'F': 'MAGHAZH'
+            },
+            
+            # Maternal Uncles/Aunts - INVERSIONS
+            # Mama (mother's brother) -> Marumagan (sister's son) or Marumagal (sister's daughter)
+            'MAMA': {
+                'M': 'MARUMAGAN',
+                'F': 'MARUMAGAL'
+            },
+            # Athai (father's sister) -> Marumagan (brother's son) or Marumagal (brother's daughter)
+            'ATHAI': {
+                'M': 'MARUMAGAN',
+                'F': 'MARUMAGAL'
+            },
+            
+            # Nephews/Nieces - INVERSIONS
+            # Marumagan (sister's son) -> Mama (mother's brother) or Athai (father's sister)
+            'MARUMAGAN': {
+                'M': 'MAMA',
+                'F': 'ATHAI'
+            },
+            # Marumagal (sister's daughter) -> Mama (mother's brother) or Athai (father's sister)
+            'MARUMAGAL': {
+                'M': 'MAMA',
+                'F': 'ATHAI'
+            },
+            
+            # Tamil Siblings - INVERSIONS
+            # Anna (elder brother) -> Thambi (younger brother) or Thangai (younger sister)
+            'ANNA': {
+                'M': 'THAMBI',
+                'F': 'THANGAI'
+            },
+            # Akka (elder sister) -> Thambi (younger brother) or Thangai (younger sister)
+            'AKKA': {
+                'M': 'THAMBI',
+                'F': 'THANGAI'
+            },
+            # Thambi (younger brother) -> Anna (elder brother) or Akka (elder sister)
+            'THAMBI': {
+                'M': 'ANNA',
+                'F': 'AKKA'
+            },
+            # Thangai (younger sister) -> Anna (elder brother) or Akka (elder sister)
+            'THANGAI': {
+                'M': 'ANNA',
+                'F': 'AKKA'
+            },
+            
+            # Tamil Children - INVERSIONS
+            # Magan (son) -> Appan (father) or Amma (mother)
+            'MAGAN': {
+                'M': 'FATHER',  # Using standard relation as fallback
+                'F': 'MOTHER'
+            },
+            # Maghazh (daughter) -> Appan (father) or Amma (mother)
+            'MAGHAZH': {
+                'M': 'FATHER',
+                'F': 'MOTHER'
+            },
+            
+            # In-laws - INVERSIONS
+            # Athan (husband's brother) -> Anni (wife of husband's brother)
+            'ATHAN': {
+                'F': 'ANNI'
+            },
+            # Anni (wife of husband's brother) -> Athan (husband's brother)
+            'ANNI': {
+                'M': 'ATHAN'
+            },
+            
+            # Children's spouses - INVERSIONS
+            # Marumagan (daughter's husband/son-in-law) -> Māmiyār (mother-in-law) or Māmanār (father-in-law)
+            'MARUMAGAN': {
+                'F': 'MOTHER_IN_LAW',
+                'M': 'FATHER_IN_LAW'
+            },
+            # Marumagal (son's wife/daughter-in-law) -> Māmiyār (mother-in-law) or Māmanār (father-in-law)
+            'MARUMAGAL': {
+                'F': 'MOTHER_IN_LAW',
+                'M': 'FATHER_IN_LAW'
+            },
+            
+            # Additional Tamil relations
+            'MAITHUNAR': {  # Wife's brother or sister's husband
+                'M': 'MAITHUNAR',
+                'F': 'MAITHUNI'
+            },
+            'MAITHUNI': {  # Husband's sister or brother's wife
+                'M': 'MAITHUNAR',
+                'F': 'MAITHUNI'
+            },
+            'KOLUNTHANAR': {  # Son-in-law's father or daughter-in-law's father
+                'M': 'KOLUNTHANAR',
+                'F': 'KOLUNTHIYAZH'
+            },
+            'KOLUNTHIYAZH': {  # Son-in-law's mother or daughter-in-law's mother
+                'M': 'KOLUNTHANAR',
+                'F': 'KOLUNTHIYAZH'
+            }
         }
         
-        # Special handling for gender-specific cases
+        # Handle special cases for gender-specific mappings
         if invitation_relation_code in INVERSION_MAP:
-            base_inverse = INVERSION_MAP[invitation_relation_code]
+            mapping = INVERSION_MAP[invitation_relation_code]
             
-            # Handle cases where the inverse might need gender adjustment
-            if base_inverse == 'SON' and accepter_gender != 'M':
-                return 'DAUGHTER' if accepter_gender == 'F' else 'CHILD'
-            elif base_inverse == 'DAUGHTER' and accepter_gender != 'F':
-                return 'SON' if accepter_gender == 'M' else 'CHILD'
-            elif base_inverse == 'FATHER' and accepter_gender != 'M':
-                return 'MOTHER' if accepter_gender == 'F' else 'PARENT'
-            elif base_inverse == 'MOTHER' and accepter_gender != 'F':
-                return 'FATHER' if accepter_gender == 'M' else 'PARENT'
-            elif base_inverse == 'GRANDSON' and accepter_gender != 'M':
-                return 'GRANDDAUGHTER' if accepter_gender == 'F' else 'GRANDCHILD'
-            elif base_inverse == 'GRANDDAUGHTER' and accepter_gender != 'F':
-                return 'GRANDSON' if accepter_gender == 'M' else 'GRANDCHILD'
+            # Case 1: Mapping is a dictionary (gender-specific)
+            if isinstance(mapping, dict):
+                # Try to get mapping for accepter's gender
+                if accepter_gender in mapping:
+                    base_inverse = mapping[accepter_gender]
+                elif inviter_gender in mapping:
+                    # Fallback to inviter's gender
+                    base_inverse = mapping[inviter_gender]
+                else:
+                    # If neither gender matches, try to find any mapping
+                    base_inverse = next(iter(mapping.values()))
+                
+                # Apply gender adjustments for specific cases
+                return self._apply_gender_adjustments(base_inverse, accepter_gender, inviter_gender)
             
-            return base_inverse
+            # Case 2: Mapping is a string (gender-neutral)
+            else:
+                base_inverse = mapping
+                return self._apply_gender_adjustments(base_inverse, accepter_gender, inviter_gender)
         
         # Log unexpected relations
         self.logger.warning(
@@ -6350,6 +7080,221 @@ class AcceptInvitationView(APIView):
         )
         
         return invitation_relation_code
+
+    def _apply_gender_adjustments(self, base_inverse, accepter_gender, inviter_gender):
+        """
+        Apply gender adjustments to the base inverse relation.
+        This handles cases where the inverse might need to be adjusted based on actual genders.
+        """
+        
+        # Gender adjustment rules
+        GENDER_ADJUSTMENTS = {
+            # Parent-child adjustments
+            'SON': {
+                'M': 'SON',
+                'F': 'DAUGHTER',
+                'O': 'CHILD'
+            },
+            'DAUGHTER': {
+                'M': 'SON',
+                'F': 'DAUGHTER',
+                'O': 'CHILD'
+            },
+            'CHILD': {
+                'M': 'SON',
+                'F': 'DAUGHTER',
+                'O': 'CHILD'
+            },
+            
+            # Parent adjustments
+            'FATHER': {
+                'M': 'FATHER',
+                'F': 'MOTHER',
+                'O': 'PARENT'
+            },
+            'MOTHER': {
+                'M': 'FATHER',
+                'F': 'MOTHER',
+                'O': 'PARENT'
+            },
+            'PARENT': {
+                'M': 'FATHER',
+                'F': 'MOTHER',
+                'O': 'PARENT'
+            },
+            
+            # Grandchild adjustments
+            'GRANDSON': {
+                'M': 'GRANDSON',
+                'F': 'GRANDDAUGHTER',
+                'O': 'GRANDCHILD'
+            },
+            'GRANDDAUGHTER': {
+                'M': 'GRANDSON',
+                'F': 'GRANDDAUGHTER',
+                'O': 'GRANDCHILD'
+            },
+            'GRANDCHILD': {
+                'M': 'GRANDSON',
+                'F': 'GRANDDAUGHTER',
+                'O': 'GRANDCHILD'
+            },
+            
+            # Grandparent adjustments
+            'GRANDFATHER': {
+                'M': 'GRANDFATHER',
+                'F': 'GRANDMOTHER',
+                'O': 'GRANDPARENT'
+            },
+            'GRANDMOTHER': {
+                'M': 'GRANDFATHER',
+                'F': 'GRANDMOTHER',
+                'O': 'GRANDPARENT'
+            },
+            'GRANDPARENT': {
+                'M': 'GRANDFATHER',
+                'F': 'GRANDMOTHER',
+                'O': 'GRANDPARENT'
+            },
+            
+            # Ashramam specific adjustments
+            'PERAN': {  # Grandson
+                'M': 'PERAN',
+                'F': 'PETTHI',
+                'O': 'GRANDCHILD'
+            },
+            'PETTHI': {  # Granddaughter
+                'M': 'PERAN',
+                'F': 'PETTHI',
+                'O': 'GRANDCHILD'
+            },
+            
+            'MAGAN': {  # Son
+                'M': 'MAGAN',
+                'F': 'MAGHAZH',
+                'O': 'CHILD'
+            },
+            'MAGHAZH': {  # Daughter
+                'M': 'MAGAN',
+                'F': 'MAGHAZH',
+                'O': 'CHILD'
+            },
+            
+            'MARUMAGAN': {  # Sister's son / Son-in-law
+                'M': 'MARUMAGAN',
+                'F': 'MARUMAGAL',
+                'O': 'NIECE_NEPHEW'
+            },
+            'MARUMAGAL': {  # Sister's daughter / Daughter-in-law
+                'M': 'MARUMAGAN',
+                'F': 'MARUMAGAL',
+                'O': 'NIECE_NEPHEW'
+            },
+            
+            'ANNA': {  # Elder brother
+                'M': 'ANNA',
+                'F': 'AKKA',
+                'O': 'ELDER_SIBLING'
+            },
+            'AKKA': {  # Elder sister
+                'M': 'ANNA',
+                'F': 'AKKA',
+                'O': 'ELDER_SIBLING'
+            },
+            'THAMBI': {  # Younger brother
+                'M': 'THAMBI',
+                'F': 'THANGAI',
+                'O': 'YOUNGER_SIBLING'
+            },
+            'THANGAI': {  # Younger sister
+                'M': 'THAMBI',
+                'F': 'THANGAI',
+                'O': 'YOUNGER_SIBLING'
+            }
+        }
+        
+        # Apply gender adjustment if rules exist
+        if base_inverse in GENDER_ADJUSTMENTS:
+            adjustment_map = GENDER_ADJUSTMENTS[base_inverse]
+            
+            # Use accepter's gender first, fallback to inviter's, then default to original
+            if accepter_gender in adjustment_map:
+                return adjustment_map[accepter_gender]
+            elif inviter_gender in adjustment_map:
+                return adjustment_map[inviter_gender]
+        
+        # Return original if no adjustment needed
+        return base_inverse
+
+
+    # Add this helper method for getting relation labels in Tamil/English
+    def _get_relation_display_name(self, relation_code, language='en'):
+        """
+        Get display name for relation codes in specified language.
+        """
+        RELATION_DISPLAY_NAMES = {
+            # English
+            'en': {
+                'THATHA': 'Grandfather',
+                'PAATI': 'Grandmother',
+                'PERAN': 'Grandson',
+                'PETTHI': 'Granddaughter',
+                'PERIYAPPA': 'Uncle (Father\'s elder brother)',
+                'CHITHAPPA': 'Uncle (Father\'s younger brother)',
+                'PERIYAMMA': 'Aunt (Father\'s elder brother\'s wife)',
+                'CHITHI': 'Aunt (Father\'s younger brother\'s wife)',
+                'MAMA': 'Uncle (Mother\'s brother)',
+                'ATHAI': 'Aunt (Father\'s sister)',
+                'MARUMAGAN': 'Nephew / Son-in-law',
+                'MARUMAGAL': 'Niece / Daughter-in-law',
+                'ANNA': 'Elder Brother',
+                'AKKA': 'Elder Sister',
+                'THAMBI': 'Younger Brother',
+                'THANGAI': 'Younger Sister',
+                'MAGAN': 'Son',
+                'MAGHAZH': 'Daughter',
+                'ATHAN': 'Brother-in-law (Husband\'s brother)',
+                'ANNI': 'Sister-in-law (Wife of husband\'s brother)',
+                'MAITHUNAR': 'Brother-in-law (Wife\'s brother)',
+                'MAITHUNI': 'Sister-in-law (Husband\'s sister)',
+                'KOLUNTHANAR': 'Co-father-in-law',
+                'KOLUNTHIYAZH': 'Co-mother-in-law',
+            },
+            
+            # Tamil
+            'ta': {
+                'THATHA': 'தாத்தா',
+                'PAATI': 'பாட்டி',
+                'PERAN': 'பேரன்',
+                'PETTHI': 'பேத்தி',
+                'PERIYAPPA': 'பெரியப்பா',
+                'CHITHAPPA': 'சித்தப்பா',
+                'PERIYAMMA': 'பெரியம்மா',
+                'CHITHI': 'சித்தி',
+                'MAMA': 'மாமா',
+                'ATHAI': 'அத்தை',
+                'MARUMAGAN': 'மருமகன்',
+                'MARUMAGAL': 'மருமகள்',
+                'ANNA': 'அண்ணன்',
+                'AKKA': 'அக்கா',
+                'THAMBI': 'தம்பி',
+                'THANGAI': 'தங்கை',
+                'MAGAN': 'மகன்',
+                'MAGHAZH': 'மகள்',
+                'ATHAN': 'அத்தான்',
+                'ANNI': 'அண்ணி',
+                'MAITHUNAR': 'மைத்துனர்',
+                'MAITHUNI': 'மைத்துனி',
+                'KOLUNTHANAR': 'கொழுந்தனார்',
+                'KOLUNTHIYAZH': 'கொழுந்தியாழ்',
+            }
+        }
+        
+        # Default to English if language not found
+        lang = language if language in RELATION_DISPLAY_NAMES else 'en'
+        
+        # Return display name if exists, otherwise return the code itself
+        return RELATION_DISPLAY_NAMES[lang].get(relation_code, relation_code)
     
     def _merge_persons(self, user_person, placeholder, invitation, inviter_person, user):
         """Merge existing user person with placeholder"""

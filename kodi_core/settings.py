@@ -5,20 +5,19 @@ from datetime import timedelta
 from decouple import config
 import dj_database_url
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 
-DEBUG = False
+DEBUG = True
 
-# ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['192.168.1.10','127.0.0.1','kodi-phase2.onrender.com']
+ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['192.168.1.14','127.0.0.1','kodi-phase2.onrender.com']
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.15:5173",
+    "http://192.168.1.14:3000",
     ]
 
 
@@ -36,7 +35,6 @@ INSTALLED_APPS = [
         'channels',
         'drf_yasg',
         'drf_spectacular',
-        'dj_database_url',
         
         # Local apps
         'apps.accounts',
@@ -83,19 +81,21 @@ WSGI_APPLICATION = 'kodi_core.wsgi.application'
 ASGI_APPLICATION = 'kodi_core.asgi.application'
 
     # Database
-DATABASES = {
-    
-        'default': dj_database_url.parse(config('postgresql://kod_db_user:GmoKik2x9ugh7zm5QC8fEQIsS3OCKL6Y@dpg-d6m1klpaae7s73f9pc00-a/kod_db'))
-        # 'default': {
-        #     'ENGINE': 'django.db.backends.postgresql',
-        #     'NAME': config('DB_NAME', default='kodi_db'),
-        #     'USER': config('DB_USER', default='myuser'),
-        #     'PASSWORD': config('DB_PASSWORD', default='pass123'),
-        #     'HOST': config('DB_HOST', default='localhost'),
-        #     'PORT': config('DB_PORT', default='5432'),
-        # }
-    }
+# DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': config('DB_NAME', default='kodi_db'),
+#             'USER': config('DB_USER', default='myuser'),
+#             'PASSWORD': config('DB_PASSWORD', default='pass123'),
+#             'HOST': config('DB_HOST', default='localhost'),
+#             'PORT': config('DB_PORT', default='5432'),
+#         }
+#     }
 
+DATABASES = {
+    'default': dj_database_url.parse(
+'postgresql://kod_db_user:GmoKik2x9ugh7zm5QC8fEQIsS3OCKL6Y@dpg-d6m1klpaae7s73f9pc00-a.oregon-postgres.render.com/kod_db'    )
+}
     # Password validation
 AUTH_PASSWORD_VALIDATORS = [
         {

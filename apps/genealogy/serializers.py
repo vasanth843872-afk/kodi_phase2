@@ -1646,6 +1646,7 @@ class InvitationListSerializer(serializers.ModelSerializer):
         read_only=True,
         default=None
     )
+    original_relation_label = serializers.SerializerMethodField()  # NEW
     time_ago = serializers.SerializerMethodField()
     
     class Meta:
@@ -1654,10 +1655,66 @@ class InvitationListSerializer(serializers.ModelSerializer):
             'id', 'token', 'status', 'created_at', 'accepted_at',
             'invited_by', 'invited_by_name', 'invited_by_mobile',
             'person', 'person_name', 'person_gender', 'person_is_placeholder',
-            'original_relation_code', 'placeholder_gender',
+            'original_relation_code', 'placeholder_gender','original_relation_label',
             'time_ago', 'is_expired'
         ]
         read_only_fields = fields
+        
+    def get_original_relation_label(self, obj):
+        """Get the display label for the original relation using RelationLabelService"""
+        if not obj.original_relation:
+            return None
+        
+        try:
+            # Get the recipient's profile for language preferences
+            user = obj.invited_user
+            user_profile = None
+            if hasattr(user, 'profile'):
+                user_profile = user.profile
+            
+            # Use RelationLabelService for proper labeling
+            from apps.relations.services import RelationLabelService
+            
+            # Prepare context based on recipient's profile
+            context = {
+                'language': getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
+                'religion': getattr(user_profile, 'religion', '') if user_profile else '',
+                'caste': getattr(user_profile, 'caste', '') if user_profile else '',
+                'family_name': obj.person.family.family_name if obj.person.family else '',
+                'native': getattr(user_profile, 'native', '') if user_profile else '',
+                'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
+                'taluk': getattr(user_profile, 'taluk', '') if user_profile else '',
+                'district': getattr(user_profile, 'district', '') if user_profile else '',
+                'state': getattr(user_profile, 'state', '') if user_profile else '',
+                'nationality': getattr(user_profile, 'nationality', '') if user_profile else ''
+            }
+            
+            # Get the label
+            result = RelationLabelService.get_relation_label(
+                relation_code=obj.original_relation.relation_code,
+                language=context['language'],
+                religion=context['religion'],
+                caste=context['caste'],
+                family_name=context['family_name'],
+                native=context['native'],
+                present_city=context['present_city'],
+                taluk=context['taluk'],
+                district=context['district'],
+                state=context['state'],
+                nationality=context['nationality']
+            )
+            
+            # Handle different return types
+            if isinstance(result, dict):
+                return result.get('label', obj.original_relation.default_english)
+            elif isinstance(result, str):
+                return result
+            else:
+                return obj.original_relation.default_english
+                
+        except Exception as e:
+            logger.error(f"Error getting relation label: {str(e)}")
+            return obj.original_relation.default_english
     
     def get_invited_by_name(self, obj):
         """Get display name of inviter"""
