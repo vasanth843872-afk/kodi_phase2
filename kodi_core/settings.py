@@ -12,12 +12,12 @@ SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['192.168.1.14','127.0.0.1','kodi-phase2.onrender.com']
+ALLOWED_HOSTS = ['192.168.1.18','127.0.0.1','kodi-phase2.onrender.com']
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.14:3000",
+    "http://192.168.1.18:3000",
     ]
 
 

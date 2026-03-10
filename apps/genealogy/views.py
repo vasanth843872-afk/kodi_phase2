@@ -125,6 +125,279 @@ class PersonViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+        
+    def _format_ashramam_relations(self, relations, person, direction, language, request):
+        """
+        Format Ashramam relations for response.
+        
+        Args:
+            relations: QuerySet of PersonRelation objects
+            person: The person being viewed
+            direction: 'my_relative' or 'i_am_relative'
+            language: User's preferred language
+            request: The HTTP request object
+        """
+        formatted = []
+        
+        for relation in relations:
+            if direction == 'my_relative':
+                # These are people who are relatives TO the person being viewed
+                relative_person = relation.from_person
+                relation_code = relation.relation.relation_code
+                relation_direction = 'incoming'
+            else:
+                # These are people TO WHOM the person being viewed is a relative
+                relative_person = relation.to_person
+                relation_code = relation.relation.relation_code
+                relation_direction = 'outgoing'
+            
+            # Get relation label using the same service you use elsewhere
+            relation_label = self._get_ashramam_relation_label(
+                relation_code=relation_code,
+                language=language,
+                person=person,
+                relative_person=relative_person
+            )
+            
+            # Get profile picture if available
+            profile_picture = None
+            if relative_person.linked_user and hasattr(relative_person.linked_user, 'profile'):
+                profile = relative_person.linked_user.profile
+                if hasattr(profile, 'image') and profile.image:
+                    profile_picture = profile.image.url
+            
+            formatted.append({
+                'id': relation.id,
+                'person': {
+                    'id': relative_person.id,
+                    'full_name': relative_person.full_name,
+                    'gender': relative_person.gender,
+                    'is_placeholder': relative_person.is_placeholder,
+                    'is_alive': relative_person.is_alive,
+                    'profile_picture': profile_picture,
+                    'age': relative_person.get_age() if hasattr(relative_person, 'get_age') else None,
+                    'linked_user': relative_person.linked_user_id is not None
+                },
+                'relation': {
+                    'code': relation_code,
+                    'label': relation_label,
+                    'direction': relation_direction,
+                    'status': relation.status,
+                    'original_relation_code': relation.relation.relation_code
+                },
+                'created_at': relation.created_at,
+                'updated_at': relation.updated_at
+            })
+        
+        return formatted
+
+    def _get_ashramam_relation_label(self, relation_code, language, person, relative_person):
+        """
+        Get appropriate label for Ashramam relations.
+        """
+        try:
+            from apps.relations.services import RelationLabelService
+            
+            # Get user profile for context
+            user_profile = None
+            if hasattr(self.request.user, 'profile'):
+                user_profile = self.request.user.profile
+            
+            # Use the same label service you use elsewhere
+            result = RelationLabelService.get_relation_label(
+                relation_code=relation_code,
+                language=language,
+                religion=getattr(user_profile, 'religion', '') if user_profile else '',
+                caste=getattr(user_profile, 'caste', '') if user_profile else '',
+                family_name=person.family.family_name if person.family else '',
+                native=getattr(user_profile, 'native', '') if user_profile else '',
+                present_city=getattr(user_profile, 'present_city', '') if user_profile else '',
+                taluk=getattr(user_profile, 'taluk', '') if user_profile else '',
+                district=getattr(user_profile, 'district', '') if user_profile else '',
+                state=getattr(user_profile, 'state', '') if user_profile else '',
+                nationality=getattr(user_profile, 'nationality', '') if user_profile else ''
+            )
+            
+            if isinstance(result, dict):
+                return result.get('label', relation_code)
+            return str(result)
+            
+        except Exception as e:
+            self.logger.error(f"Error getting Ashramam relation label: {str(e)}")
+            # Fallback to a simple label map
+            return self._get_simple_ashramam_label(relation_code, language)
+
+    def _get_simple_ashramam_label(self, relation_code, language):
+        """
+        Simple fallback for Ashramam relation labels.
+        """
+        labels = {
+            'en': {
+                'THATHA': 'Grandfather',
+                'PAATI': 'Grandmother',
+                'PERIYAPPA': 'Uncle (Father\'s elder brother)',
+                'CHITHAPPA': 'Uncle (Father\'s younger brother)',
+                'PERIYAMMA': 'Aunt (Father\'s elder brother\'s wife)',
+                'CHITHI': 'Aunt (Father\'s younger brother\'s wife)',
+                'MAMA': 'Uncle (Mother\'s brother)',
+                'ATHAI': 'Aunt (Father\'s sister)',
+                'ANNA': 'Elder Brother',
+                'AKKA': 'Elder Sister',
+                'THAMBI': 'Younger Brother',
+                'THANGAI': 'Younger Sister',
+                'MAGAN': 'Son',
+                'MAGHAZH': 'Daughter',
+                'PERAN': 'Grandson',
+                'PETTHI': 'Granddaughter',
+                'ATHAN': 'Brother-in-law',
+                'ANNI': 'Sister-in-law',
+                'MARUMAGAN': 'Son-in-law / Nephew',
+                'MARUMAGAL': 'Daughter-in-law / Niece',
+                'MAITHUNAR': 'Brother-in-law',
+                'MAITHUNI': 'Sister-in-law',
+                'KOLUNTHANAR': 'Co-father-in-law',
+                'KOLUNTHIYAZH': 'Co-mother-in-law',
+            },
+            'ta': {
+                'THATHA': 'தாத்தா',
+                'PAATI': 'பாட்டி',
+                'PERIYAPPA': 'பெரியப்பா',
+                'CHITHAPPA': 'சித்தப்பா',
+                'PERIYAMMA': 'பெரியம்மா',
+                'CHITHI': 'சித்தி',
+                'MAMA': 'மாமா',
+                'ATHAI': 'அத்தை',
+                'ANNA': 'அண்ணன்',
+                'AKKA': 'அக்கா',
+                'THAMBI': 'தம்பி',
+                'THANGAI': 'தங்கை',
+                'MAGAN': 'மகன்',
+                'MAGHAZH': 'மகள்',
+                'PERAN': 'பேரன்',
+                'PETTHI': 'பேத்தி',
+                'ATHAN': 'அத்தான்',
+                'ANNI': 'அண்ணி',
+                'MARUMAGAN': 'மருமகன்',
+                'MARUMAGAL': 'மருமகள்',
+                'MAITHUNAR': 'மைத்துனர்',
+                'MAITHUNI': 'மைத்துனி',
+                'KOLUNTHANAR': 'கொழுந்தனார்',
+                'KOLUNTHIYAZH': 'கொழுந்தியாழ்',
+            }
+        }
+        
+        lang = language if language in labels else 'en'
+        return labels[lang].get(relation_code, relation_code)
+    
+    
+    def _get_available_ashramam_to_add(self, person, ashramam_codes, language):
+        """
+        Get available Ashramam relations that can be added for this person.
+        """
+        try:
+            # Get existing relations for this person
+            existing_incoming = PersonRelation.objects.filter(
+                to_person=person,
+                relation__relation_code__in=ashramam_codes,
+                status__in=['confirmed', 'pending']
+            ).values_list('relation__relation_code', flat=True)
+            
+            existing_outgoing = PersonRelation.objects.filter(
+                from_person=person,
+                relation__relation_code__in=ashramam_codes,
+                status__in=['confirmed', 'pending']
+            ).values_list('relation__relation_code', flat=True)
+            
+            existing_codes = set(existing_incoming) | set(existing_outgoing)
+            
+            # Define which relations can be added (excluding exclusive ones if already exist)
+            # For example, a person can only have one THATHA (grandfather)
+            exclusive_relations = ['THATHA', 'PAATI', 'FATHER', 'MOTHER', 'HUSBAND', 'WIFE']
+            
+            available = []
+            for code in ashramam_codes:
+                if code in exclusive_relations and code in existing_codes:
+                    continue  # Skip if exclusive relation already exists
+                
+                available.append({
+                    'code': code,
+                    'label': self._get_simple_ashramam_label(code, language),
+                    'gender': self._get_ashramam_gender_requirement(code),
+                    'can_add': True
+                })
+            
+            return available
+            
+        except Exception as e:
+            self.logger.error(f"Error getting available Ashramam relations: {str(e)}")
+            return []
+        
+    def _get_suggested_custom_relations(self, person, language):
+        """
+        Get suggested custom relations based on person's existing relations.
+        """
+        try:
+            # Get existing relations to suggest missing ones
+            existing_incoming = PersonRelation.objects.filter(
+                to_person=person,
+                status__in=['confirmed', 'pending']
+            ).values_list('relation__relation_code', flat=True)
+            
+            suggestions = []
+            
+            # Suggest grandparents if missing
+            if 'THATHA' not in existing_incoming and 'PAATI' not in existing_incoming:
+                suggestions.append({
+                    'name': 'Great Grandfather',
+                    'description': 'Your father\'s grandfather',
+                    'example': 'Great Grandfather'
+                })
+            
+            # Suggest uncles/aunts if missing
+            if 'MAMA' not in existing_incoming and 'PERIYAPPA' not in existing_incoming:
+                suggestions.append({
+                    'name': 'Mother\'s Brother',
+                    'description': 'Your maternal uncle',
+                    'example': 'Mama'
+                })
+            
+            return suggestions[:5]  # Return top 5 suggestions
+            
+        except Exception as e:
+            self.logger.error(f"Error getting suggested relations: {str(e)}")
+            return []
+
+    def _get_ashramam_gender_requirement(self, relation_code):
+        """
+        Get gender requirement for Ashramam relations.
+        """
+        gender_map = {
+            'THATHA': 'M',
+            'PAATI': 'F',
+            'PERIYAPPA': 'M',
+            'CHITHAPPA': 'M',
+            'PERIYAMMA': 'F',
+            'CHITHI': 'F',
+            'MAMA': 'M',
+            'ATHAI': 'F',
+            'ANNA': 'M',
+            'AKKA': 'F',
+            'THAMBI': 'M',
+            'THANGAI': 'F',
+            'MAGAN': 'M',
+            'MAGHAZH': 'F',
+            'PERAN': 'M',
+            'PETTHI': 'F',
+            'ATHAN': 'M',
+            'ANNI': 'F',
+            'MARUMAGAN': 'M',
+            'MARUMAGAL': 'F',
+            'MAITHUNAR': 'M',
+            'MAITHUNI': 'F',
+            'KOLUNTHANAR': 'M',
+            'KOLUNTHIYAZH': 'F',
+        }
+        return gender_map.get(relation_code)
     
     def _sync_person_with_profile(self, person: Person) -> Person:
         """Sync person gender with user profile gender."""
@@ -987,12 +1260,12 @@ class PersonViewSet(viewsets.ModelViewSet):
             direction = relation_mapping['direction']
             
             with transaction.atomic():
-                # Get or create FixedRelation
+                # Get or create FixedRelation - REMOVED gender_requirement field
                 fixed_relation, created = FixedRelation.objects.get_or_create(
                     relation_code=relation_code,
                     defaults={
                         'default_english': relation_mapping['display_name'],
-                        'gender_requirement': gender
+                        # 'gender_requirement' field removed - it doesn't exist in the model
                     }
                 )
                 
@@ -1082,7 +1355,6 @@ class PersonViewSet(viewsets.ModelViewSet):
                 
         except Exception as e:
             return self._handle_exception(e, context)
-
     def _map_custom_relationship(self, relationship_name, gender=None):
         """Map free-text relationship names to relation codes"""
         relationship_lower = relationship_name.lower().strip()
