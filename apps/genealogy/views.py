@@ -190,12 +190,28 @@ class PersonViewSet(viewsets.ModelViewSet):
             })
         
         return formatted
-
+    
     def _get_ashramam_relation_label(self, relation_code, language, person, relative_person):
         """
         Get appropriate label for Ashramam relations.
+        For custom relations, returns the stored custom label directly.
         """
         try:
+            # Check if this is a custom relation (e.g., codes like 'GREAT_MAMA', 'CUSTOM_*')
+            # You can identify custom relations by their code pattern
+            # if relation_code.startswith('CUSTOM_') or '_' in relation_code and not self._is_standard_ashramam_code(relation_code):
+                # Try to get the stored custom label from the relation
+                # Option 1: Check if the FixedRelation's default_english is the custom value
+            fixed_relation = FixedRelation.objects.filter(relation_code=relation_code).first()
+            if fixed_relation and fixed_relation.default_english != relation_code:
+                    # If default_english is set to something meaningful, use it
+                return fixed_relation.default_english
+                
+                # Option 2: If you stored custom label elsewhere, retrieve it here
+                # For now, return a formatted version of the code
+            return relation_code.replace('_', ' ').title()
+            
+            # For standard Ashramam relations, use the service
             from apps.relations.services import RelationLabelService
             
             # Get user profile for context
@@ -203,7 +219,7 @@ class PersonViewSet(viewsets.ModelViewSet):
             if hasattr(self.request.user, 'profile'):
                 user_profile = self.request.user.profile
             
-            # Use the same label service you use elsewhere
+            # Use the label service for standard relations
             result = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=language,
@@ -224,8 +240,19 @@ class PersonViewSet(viewsets.ModelViewSet):
             
         except Exception as e:
             self.logger.error(f"Error getting Ashramam relation label: {str(e)}")
-            # Fallback to a simple label map
+            # Fallback to simple label
             return self._get_simple_ashramam_label(relation_code, language)
+
+    def _is_standard_ashramam_code(self, relation_code):
+        """Check if a relation code is a standard Ashramam code"""
+        standard_codes = [
+            'THATHA', 'PAATI', 'PERIYAPPA', 'CHITHAPPA', 'PERIYAMMA', 'CHITHI',
+            'MAMA', 'ATHAI', 'ANNA', 'AKKA', 'THAMBI', 'THANGAI',
+            'MAGAN', 'MAGHAZH', 'PERAN', 'PETTHI', 'ATHAN', 'ANNI',
+            'MARUMAGAN', 'MARUMAGAL', 'MAITHUNAR', 'MAITHUNI', 
+            'KOLUNTHANAR', 'KOLUNTHIYAZH'
+        ]
+        return relation_code in standard_codes
 
     def _get_simple_ashramam_label(self, relation_code, language):
         """
@@ -1128,25 +1155,23 @@ class PersonViewSet(viewsets.ModelViewSet):
                 'MAGAN', 'MAGHAZH',
                 
                 # Additional
-                'MAITHUNAR', 'MAITHUNI',
+                'MAITHUNAR', 'MYTHUNI',
                 
-                # Custom/Composite relations
-                'GREAT_GRANDFATHER', 'GREAT_GRANDMOTHER',
-                'GREAT_PERAN', 'GREAT_PETTHI',
+               
             ]
             
             # Get existing Ashramam relations for this person
             # Relations where this person is the TARGET (incoming - their relatives)
             incoming_ashramam = PersonRelation.objects.filter(
                 to_person=person,
-                relation__relation_code__in=ASHRAMAM_CODES,
+        
                 status__in=['confirmed', 'pending']
             ).select_related('from_person', 'relation', 'from_person__linked_user__profile')
             
             # Relations where this person is the SOURCE (outgoing - they are the relative to someone)
             outgoing_ashramam = PersonRelation.objects.filter(
                 from_person=person,
-                relation__relation_code__in=ASHRAMAM_CODES,
+                # relation__relation_code__in=ASHRAMAM_CODES,
                 status__in=['confirmed', 'pending']
             ).select_related('to_person', 'relation', 'to_person__linked_user__profile')
             
@@ -1264,10 +1289,18 @@ class PersonViewSet(viewsets.ModelViewSet):
                 fixed_relation, created = FixedRelation.objects.get_or_create(
                     relation_code=relation_code,
                     defaults={
-                        'default_english': relation_mapping['display_name'],
+                        'default_english': relationship_name.title(),  # Store the user's input as the display name!
                         # 'gender_requirement' field removed - it doesn't exist in the model
                     }
                 )
+                
+                # If relation already exists but this is a custom input, update it
+                if not created and relation_mapping.get('confidence') == 'custom':
+                    # Only update if it's currently set to something generic
+                    if fixed_relation.default_english == relation_code or \
+                    fixed_relation.default_english == relation_code.replace('_', ' ').title():
+                        fixed_relation.default_english = relationship_name.title()
+                        fixed_relation.save(update_fields=['default_english'])
                 
                 # Create the new person
                 new_person = Person.objects.create(
@@ -1313,11 +1346,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                     relation=fixed_relation,
                     status=status_to_use,
                     created_by=request.user,
-                    metadata={
-                        'custom_relationship': relationship_name,
-                        'original_input': relationship_name,
-                        'mapping_confidence': relation_mapping.get('confidence', 'custom')
-                    }
+                    
                 )
                 
                 return Response({
@@ -1361,11 +1390,6 @@ class PersonViewSet(viewsets.ModelViewSet):
         
         # Comprehensive mapping dictionary
         RELATIONSHIP_MAP = {
-            # Great grandparents
-            'great grandfather': {'code': 'GREAT_GRANDFATHER', 'direction': 'ancestor', 'gender': 'M'},
-            'great grandpa': {'code': 'GREAT_GRANDFATHER', 'direction': 'ancestor', 'gender': 'M'},
-            'great grandmother': {'code': 'GREAT_GRANDMOTHER', 'direction': 'ancestor', 'gender': 'F'},
-            'great grandma': {'code': 'GREAT_GRANDMOTHER', 'direction': 'ancestor', 'gender': 'F'},
             
             # Grandparents
             'grandfather': {'code': 'THATHA', 'direction': 'ancestor', 'gender': 'M'},
@@ -3409,6 +3433,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                 
                 # ===== ALL 23 ASHRAMAM RELATIONS =====
                 'add_maithunar':{'code':'MAITHUNAR','gender':'M','direction':'parent','label':'Maithunar'},
+                'add_mythuni':{'code':'MAITHUNI','gender':'F','direction':'parent','label':'Maithuni'},
                 # Grandparents
                 'add_thatha':      {'code': 'THATHA',      'gender': 'M', 'direction': 'grandparent', 'label': 'Thatha'},
                 'add_paati':       {'code': 'PAATI',       'gender': 'F', 'direction': 'grandparent', 'label': 'Paati'},
