@@ -15,3 +15,4 @@ redis
 gunicorn==22.0.0
 django_extensions
 dj-database-url
+django-filter
