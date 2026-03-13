@@ -2776,301 +2776,301 @@ class PersonViewSet(viewsets.ModelViewSet):
         return gender_map.get(gender_code, gender_code)
 
 
-    @action(
-    detail=False,
-    methods=['post'],
-    permission_classes=[permissions.IsAuthenticated],
-    url_path='accept-invitation/(?P<token>[^/.]+)',
-)
-    def accept_invitation(self, request, token):
-        """User accepts invitation - REPLACES placeholder with user's real person."""
-        context = {'token': token, 'user_id': request.user.id, 'action': 'accept_invitation'}
-        try:
-            invitation = get_object_or_404(
-                Invitation,
-                token=token,
-                status='pending'
-            )
+#     @action(
+#     detail=False,
+#     methods=['post'],
+#     permission_classes=[permissions.IsAuthenticated],
+#     url_path='accept-invitation/(?P<token>[^/.]+)',
+# )
+#     def accept_invitation(self, request, token):
+#         """User accepts invitation - REPLACES placeholder with user's real person."""
+#         context = {'token': token, 'user_id': request.user.id, 'action': 'accept_invitation'}
+#         try:
+#             invitation = get_object_or_404(
+#                 Invitation,
+#                 token=token,
+#                 status='pending'
+#             )
             
-            if invitation.is_expired():
-                invitation.status = 'expired'
-                invitation.save()
-                return Response(
-                    {'error': 'Invitation expired', 'code': 'invitation_expired'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+#             if invitation.is_expired():
+#                 invitation.status = 'expired'
+#                 invitation.save()
+#                 return Response(
+#                     {'error': 'Invitation expired', 'code': 'invitation_expired'},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
             
-            if invitation.invited_user != request.user:
-                return Response(
-                    {'error': 'This invitation is not for you', 'code': 'invalid_invitation'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+#             if invitation.invited_user != request.user:
+#                 return Response(
+#                     {'error': 'This invitation is not for you', 'code': 'invalid_invitation'},
+#                     status=status.HTTP_403_FORBIDDEN
+#                 )
             
-            # ===== CRITICAL: GENDER VALIDATION =====
-            # Validate that accepting user's gender matches the placeholder
-            validation_result = self._validate_invitation_gender(invitation, request.user)
-            if not validation_result['valid']:
-                return Response({
-                    'success': False,
-                    'error': validation_result['error'],
-                    'code': validation_result['code'],
-                    'details': validation_result['details']
-                }, status=status.HTTP_400_BAD_REQUEST)
+#             # ===== CRITICAL: GENDER VALIDATION =====
+#             # Validate that accepting user's gender matches the placeholder
+#             validation_result = self._validate_invitation_gender(invitation, request.user)
+#             if not validation_result['valid']:
+#                 return Response({
+#                     'success': False,
+#                     'error': validation_result['error'],
+#                     'code': validation_result['code'],
+#                     'details': validation_result['details']
+#                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            placeholder = invitation.person
+#             placeholder = invitation.person
             
-            with transaction.atomic():
-                inviter_person = Person.objects.filter(linked_user=invitation.invited_by).first()
+#             with transaction.atomic():
+#                 inviter_person = Person.objects.filter(linked_user=invitation.invited_by).first()
                 
-                user_person = Person.objects.filter(linked_user=request.user).first()
+#                 user_person = Person.objects.filter(linked_user=request.user).first()
                 
-                if user_person:
-                    user_outgoing = PersonRelation.objects.filter(from_person=user_person)
-                    user_incoming = PersonRelation.objects.filter(to_person=user_person)
+#                 if user_person:
+#                     user_outgoing = PersonRelation.objects.filter(from_person=user_person)
+#                     user_incoming = PersonRelation.objects.filter(to_person=user_person)
                     
-                    outgoing_count = user_outgoing.count()
-                    incoming_count = user_incoming.count()
+#                     outgoing_count = user_outgoing.count()
+#                     incoming_count = user_incoming.count()
                     
-                    for rel in user_outgoing:
-                        rel.from_person = placeholder
-                        rel.save()
+#                     for rel in user_outgoing:
+#                         rel.from_person = placeholder
+#                         rel.save()
                     
-                    for rel in user_incoming:
-                        rel.to_person = placeholder
-                        rel.save()
+#                     for rel in user_incoming:
+#                         rel.to_person = placeholder
+#                         rel.save()
                     
-                    old_user_person_id = user_person.id
-                    user_person.delete()
+#                     old_user_person_id = user_person.id
+#                     user_person.delete()
                     
-                    placeholder.linked_user = request.user
-                    placeholder.is_placeholder = False
+#                     placeholder.linked_user = request.user
+#                     placeholder.is_placeholder = False
                     
-                    user_display_name = self._get_user_display_name(request.user)
+#                     user_display_name = self._get_user_display_name(request.user)
                     
-                    if placeholder.full_name != user_display_name:
-                        placeholder.original_name = placeholder.full_name
-                        placeholder.full_name = user_display_name
+#                     if placeholder.full_name != user_display_name:
+#                         placeholder.original_name = placeholder.full_name
+#                         placeholder.full_name = user_display_name
                     
-                    placeholder.save()
+#                     placeholder.save()
                     
-                    PersonRelation.objects.filter(
-                        Q(from_person=placeholder) | Q(to_person=placeholder),
-                        status='pending'
-                    ).update(status='confirmed')
+#                     PersonRelation.objects.filter(
+#                         Q(from_person=placeholder) | Q(to_person=placeholder),
+#                         status='pending'
+#                     ).update(status='confirmed')
                     
-                    connection_created = False
-                    if inviter_person:
-                        existing_relation = PersonRelation.objects.filter(
-                            Q(from_person=placeholder, to_person=inviter_person) |
-                            Q(from_person=inviter_person, to_person=placeholder)
-                        ).first()
+#                     connection_created = False
+#                     if inviter_person:
+#                         existing_relation = PersonRelation.objects.filter(
+#                             Q(from_person=placeholder, to_person=inviter_person) |
+#                             Q(from_person=inviter_person, to_person=placeholder)
+#                         ).first()
                         
-                        if not existing_relation:
-                            if invitation.original_relation:
-                                fixed_relation = invitation.original_relation
-                            else:
-                                if placeholder.gender == 'F':
-                                    relation_code = 'SISTER'
-                                elif placeholder.gender == 'M':
-                                    relation_code = 'BROTHER'
-                                else:
-                                    relation_code = 'SIBLING'
+#                         if not existing_relation:
+#                             if invitation.original_relation:
+#                                 fixed_relation = invitation.original_relation
+#                             else:
+#                                 if placeholder.gender == 'F':
+#                                     relation_code = 'SISTER'
+#                                 elif placeholder.gender == 'M':
+#                                     relation_code = 'BROTHER'
+#                                 else:
+#                                     relation_code = 'SIBLING'
                                 
-                                try:
-                                    fixed_relation = FixedRelation.objects.get(relation_code=relation_code)
-                                except FixedRelation.DoesNotExist:
-                                    fixed_relation = FixedRelation.objects.first()
+#                                 try:
+#                                     fixed_relation = FixedRelation.objects.get(relation_code=relation_code)
+#                                 except FixedRelation.DoesNotExist:
+#                                     fixed_relation = FixedRelation.objects.first()
                             
-                            PersonRelation.objects.create(
-                                from_person=placeholder,
-                                to_person=inviter_person,
-                                relation=fixed_relation,
-                                status='confirmed',
-                                created_by=request.user
-                            )
-                            connection_created = True
+#                             PersonRelation.objects.create(
+#                                 from_person=placeholder,
+#                                 to_person=inviter_person,
+#                                 relation=fixed_relation,
+#                                 status='confirmed',
+#                                 created_by=request.user
+#                             )
+#                             connection_created = True
                     
-                    invitation.status = 'accepted'
-                    invitation.accepted_at = timezone.now()
-                    invitation.save()
+#                     invitation.status = 'accepted'
+#                     invitation.accepted_at = timezone.now()
+#                     invitation.save()
                     
-                    # Send WebSocket notification to inviter
-                    try:
-                        from channels.layers import get_channel_layer
-                        from asgiref.sync import async_to_sync
+#                     # Send WebSocket notification to inviter
+#                     try:
+#                         from channels.layers import get_channel_layer
+#                         from asgiref.sync import async_to_sync
                         
-                        channel_layer = get_channel_layer()
+#                         channel_layer = get_channel_layer()
                         
-                        acceptance_data = {
-                            'id': invitation.id,
-                            'person_id': placeholder.id,
-                            'person_name': placeholder.full_name,
-                            'accepted_by': request.user.id,
-                            'accepted_by_name': self._get_user_display_name(request.user),
-                            'original_relation': invitation.original_relation.relation_code if invitation.original_relation else None
-                        }
+#                         acceptance_data = {
+#                             'id': invitation.id,
+#                             'person_id': placeholder.id,
+#                             'person_name': placeholder.full_name,
+#                             'accepted_by': request.user.id,
+#                             'accepted_by_name': self._get_user_display_name(request.user),
+#                             'original_relation': invitation.original_relation.relation_code if invitation.original_relation else None
+#                         }
                         
-                        async_to_sync(channel_layer.group_send)(
-                            f"user_{invitation.invited_by.id}_invitations",
-                            {
-                                'type': 'invitation_accepted',
-                                'invitation': acceptance_data,
-                                'message': f'🎉 {self._get_user_display_name(request.user)} accepted your invitation to be {placeholder.full_name}!'
-                            }
-                        )
+#                         async_to_sync(channel_layer.group_send)(
+#                             f"user_{invitation.invited_by.id}_invitations",
+#                             {
+#                                 'type': 'invitation_accepted',
+#                                 'invitation': acceptance_data,
+#                                 'message': f'🎉 {self._get_user_display_name(request.user)} accepted your invitation to be {placeholder.full_name}!'
+#                             }
+#                         )
                         
-                        self.logger.info(
-                            f"WebSocket acceptance notification sent to inviter {invitation.invited_by.id}",
-                            extra={'invitation_id': invitation.id}
-                        )
+#                         self.logger.info(
+#                             f"WebSocket acceptance notification sent to inviter {invitation.invited_by.id}",
+#                             extra={'invitation_id': invitation.id}
+#                         )
                         
-                    except Exception as e:
-                        self.logger.error(
-                            f"Failed to send acceptance WebSocket notification: {str(e)}",
-                            extra={'invitation_id': invitation.id}
-                        )
+#                     except Exception as e:
+#                         self.logger.error(
+#                             f"Failed to send acceptance WebSocket notification: {str(e)}",
+#                             extra={'invitation_id': invitation.id}
+#                         )
                     
-                    self.logger.info(
-                        f"Invitation accepted - placeholder replaced user's person",
-                        extra={
-                            'invitation_id': invitation.id,
-                            'placeholder_id': placeholder.id,
-                            'user_id': request.user.id,
-                            'old_person_deleted': old_user_person_id
-                        }
-                    )
+#                     self.logger.info(
+#                         f"Invitation accepted - placeholder replaced user's person",
+#                         extra={
+#                             'invitation_id': invitation.id,
+#                             'placeholder_id': placeholder.id,
+#                             'user_id': request.user.id,
+#                             'old_person_deleted': old_user_person_id
+#                         }
+#                     )
                     
-                    return Response({
-                        'success': True,
-                        'message': f'You are now connected as "{placeholder.full_name}" (replaced placeholder)',
-                        'action': 'placeholder_replaced',
-                        'details': {
-                            'old_person_deleted': old_user_person_id,
-                            'new_person': {
-                                'id': placeholder.id,
-                                'name': placeholder.full_name,
-                                'gender': placeholder.gender,
-                                'family_id': placeholder.family_id,
-                                'is_now_user': True,
-                                'original_name': placeholder.original_name
-                            },
-                            'relations_redirected': outgoing_count + incoming_count,
-                            'connection_created': connection_created,
-                            'connected_to_inviter': inviter_person.id if inviter_person else None,
-                            'relation_used': invitation.original_relation.relation_code if invitation.original_relation else 'gender_based'
-                        }
-                    })
-                else:
-                    placeholder.linked_user = request.user
-                    placeholder.is_placeholder = False
+#                     return Response({
+#                         'success': True,
+#                         'message': f'You are now connected as "{placeholder.full_name}" (replaced placeholder)',
+#                         'action': 'placeholder_replaced',
+#                         'details': {
+#                             'old_person_deleted': old_user_person_id,
+#                             'new_person': {
+#                                 'id': placeholder.id,
+#                                 'name': placeholder.full_name,
+#                                 'gender': placeholder.gender,
+#                                 'family_id': placeholder.family_id,
+#                                 'is_now_user': True,
+#                                 'original_name': placeholder.original_name
+#                             },
+#                             'relations_redirected': outgoing_count + incoming_count,
+#                             'connection_created': connection_created,
+#                             'connected_to_inviter': inviter_person.id if inviter_person else None,
+#                             'relation_used': invitation.original_relation.relation_code if invitation.original_relation else 'gender_based'
+#                         }
+#                     })
+#                 else:
+#                     placeholder.linked_user = request.user
+#                     placeholder.is_placeholder = False
                     
-                    user_display_name = self._get_user_display_name(request.user)
+#                     user_display_name = self._get_user_display_name(request.user)
                     
-                    if placeholder.full_name != user_display_name:
-                        placeholder.original_name = placeholder.full_name
-                        placeholder.full_name = user_display_name
+#                     if placeholder.full_name != user_display_name:
+#                         placeholder.original_name = placeholder.full_name
+#                         placeholder.full_name = user_display_name
                     
-                    placeholder.save()
+#                     placeholder.save()
                     
-                    PersonRelation.objects.filter(
-                        Q(from_person=placeholder) | Q(to_person=placeholder),
-                        status='pending'
-                    ).update(status='confirmed')
+#                     PersonRelation.objects.filter(
+#                         Q(from_person=placeholder) | Q(to_person=placeholder),
+#                         status='pending'
+#                     ).update(status='confirmed')
                     
-                    connection_created = False
-                    if inviter_person:
-                        existing_relation = PersonRelation.objects.filter(
-                            Q(from_person=placeholder, to_person=inviter_person) |
-                            Q(from_person=inviter_person, to_person=placeholder)
-                        ).first()
+#                     connection_created = False
+#                     if inviter_person:
+#                         existing_relation = PersonRelation.objects.filter(
+#                             Q(from_person=placeholder, to_person=inviter_person) |
+#                             Q(from_person=inviter_person, to_person=placeholder)
+#                         ).first()
                         
-                        if not existing_relation:
-                            if invitation.original_relation:
-                                fixed_relation = invitation.original_relation
-                            else:
-                                if placeholder.gender == 'F':
-                                    relation_code = 'SISTER'
-                                elif placeholder.gender == 'M':
-                                    relation_code = 'BROTHER'
-                                else:
-                                    relation_code = 'SIBLING'
+#                         if not existing_relation:
+#                             if invitation.original_relation:
+#                                 fixed_relation = invitation.original_relation
+#                             else:
+#                                 if placeholder.gender == 'F':
+#                                     relation_code = 'SISTER'
+#                                 elif placeholder.gender == 'M':
+#                                     relation_code = 'BROTHER'
+#                                 else:
+#                                     relation_code = 'SIBLING'
                                 
-                                try:
-                                    fixed_relation = FixedRelation.objects.get(relation_code=relation_code)
-                                except FixedRelation.DoesNotExist:
-                                    fixed_relation = FixedRelation.objects.first()
+#                                 try:
+#                                     fixed_relation = FixedRelation.objects.get(relation_code=relation_code)
+#                                 except FixedRelation.DoesNotExist:
+#                                     fixed_relation = FixedRelation.objects.first()
                             
-                            PersonRelation.objects.create(
-                                from_person=placeholder,
-                                to_person=inviter_person,
-                                relation=fixed_relation,
-                                status='confirmed',
-                                created_by=request.user
-                            )
-                            connection_created = True
+#                             PersonRelation.objects.create(
+#                                 from_person=placeholder,
+#                                 to_person=inviter_person,
+#                                 relation=fixed_relation,
+#                                 status='confirmed',
+#                                 created_by=request.user
+#                             )
+#                             connection_created = True
                     
-                    invitation.status = 'accepted'
-                    invitation.accepted_at = timezone.now()
-                    invitation.save()
+#                     invitation.status = 'accepted'
+#                     invitation.accepted_at = timezone.now()
+#                     invitation.save()
                     
-                    # Send WebSocket notification to inviter
-                    try:
-                        from channels.layers import get_channel_layer
-                        from asgiref.sync import async_to_sync
+#                     # Send WebSocket notification to inviter
+#                     try:
+#                         from channels.layers import get_channel_layer
+#                         from asgiref.sync import async_to_sync
                         
-                        channel_layer = get_channel_layer()
+#                         channel_layer = get_channel_layer()
                         
-                        acceptance_data = {
-                            'id': invitation.id,
-                            'person_id': placeholder.id,
-                            'person_name': placeholder.full_name,
-                            'accepted_by': request.user.id,
-                            'accepted_by_name': self._get_user_display_name(request.user),
-                            'original_relation': invitation.original_relation.relation_code if invitation.original_relation else None
-                        }
+#                         acceptance_data = {
+#                             'id': invitation.id,
+#                             'person_id': placeholder.id,
+#                             'person_name': placeholder.full_name,
+#                             'accepted_by': request.user.id,
+#                             'accepted_by_name': self._get_user_display_name(request.user),
+#                             'original_relation': invitation.original_relation.relation_code if invitation.original_relation else None
+#                         }
                         
-                        async_to_sync(channel_layer.group_send)(
-                            f"user_{invitation.invited_by.id}_invitations",
-                            {
-                                'type': 'invitation_accepted',
-                                'invitation': acceptance_data,
-                                'message': f'🎉 {self._get_user_display_name(request.user)} accepted your invitation to be {placeholder.full_name}!'
-                            }
-                        )
+#                         async_to_sync(channel_layer.group_send)(
+#                             f"user_{invitation.invited_by.id}_invitations",
+#                             {
+#                                 'type': 'invitation_accepted',
+#                                 'invitation': acceptance_data,
+#                                 'message': f'🎉 {self._get_user_display_name(request.user)} accepted your invitation to be {placeholder.full_name}!'
+#                             }
+#                         )
                         
-                        self.logger.info(
-                            f"WebSocket acceptance notification sent to inviter {invitation.invited_by.id}",
-                            extra={'invitation_id': invitation.id}
-                        )
+#                         self.logger.info(
+#                             f"WebSocket acceptance notification sent to inviter {invitation.invited_by.id}",
+#                             extra={'invitation_id': invitation.id}
+#                         )
                         
-                    except Exception as e:
-                        self.logger.error(
-                            f"Failed to send acceptance WebSocket notification: {str(e)}",
-                            extra={'invitation_id': invitation.id}
-                        )
+#                     except Exception as e:
+#                         self.logger.error(
+#                             f"Failed to send acceptance WebSocket notification: {str(e)}",
+#                             extra={'invitation_id': invitation.id}
+#                         )
                     
-                    self.logger.info(
-                        f"Invitation accepted - placeholder became user",
-                        extra={
-                            'invitation_id': invitation.id,
-                            'placeholder_id': placeholder.id,
-                            'user_id': request.user.id
-                        }
-                    )
+#                     self.logger.info(
+#                         f"Invitation accepted - placeholder became user",
+#                         extra={
+#                             'invitation_id': invitation.id,
+#                             'placeholder_id': placeholder.id,
+#                             'user_id': request.user.id
+#                         }
+#                     )
                     
-                    return Response({
-                        'success': True,
-                        'message': f'You are now connected as "{placeholder.full_name}"',
-                        'action': 'placeholder_became_user',
-                        'person': PersonSerializer(placeholder, context={'request': request}).data,
-                        'connection_created': connection_created,
-                        'connected_to_inviter': inviter_person.id if inviter_person else None,
-                        'relation_used': invitation.original_relation.relation_code if invitation.original_relation else 'gender_based',
-                        'original_name': placeholder.original_name
-                    })
+#                     return Response({
+#                         'success': True,
+#                         'message': f'You are now connected as "{placeholder.full_name}"',
+#                         'action': 'placeholder_became_user',
+#                         'person': PersonSerializer(placeholder, context={'request': request}).data,
+#                         'connection_created': connection_created,
+#                         'connected_to_inviter': inviter_person.id if inviter_person else None,
+#                         'relation_used': invitation.original_relation.relation_code if invitation.original_relation else 'gender_based',
+#                         'original_name': placeholder.original_name
+#                     })
                     
-        except Exception as e:
-            return self._handle_exception(e, context)
+#         except Exception as e:
+#             return self._handle_exception(e, context)
 
 
     def _validate_invitation_gender(self, invitation, user):

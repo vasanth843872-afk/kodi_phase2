@@ -371,3 +371,25 @@ class UserSuggestionSerializer(serializers.Serializer):
         mobile = obj.mobile_number
         verified = "✓" if obj.is_mobile_verified else ""
         return f"{mobile} {verified}"
+    
+class UserBasicSerializer(serializers.ModelSerializer):
+    """
+    Basic user serializer for minimal user data
+    Used by other apps like event_management
+    """
+    full_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'mobile_number', 'full_name', 'is_mobile_verified']
+    
+    def get_full_name(self, obj):
+        """Get display name"""
+        # You can customize this based on your profile model
+        if hasattr(obj, 'profile') and obj.profile:
+            profile = obj.profile
+            first = getattr(profile, 'firstname', '')
+            last = getattr(profile, 'lastname', '')
+            if first or last:
+                return f"{first} {last}".strip()
+        return obj.mobile_number or f"User_{obj.id}"

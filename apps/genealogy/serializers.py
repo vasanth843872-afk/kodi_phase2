@@ -1930,3 +1930,30 @@ class SentInvitationListSerializer(serializers.ModelSerializer):
             return f'{days} day{"s" if days > 1 else ""} ago'
         else:
             return obj.created_at.strftime('%b %d, %Y')
+        
+class PersonBasicSerializer(serializers.ModelSerializer):
+    """
+    Basic serializer for Person with minimal fields
+    """
+    full_name = serializers.CharField()
+    age = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Person
+        fields = [
+            'id', 
+            'full_name', 
+            'gender', 
+            'date_of_birth',
+            'date_of_death',
+            'is_alive',
+            'age',
+            'is_placeholder'
+        ]
+        read_only_fields = ['id']
+    
+    def get_age(self, obj):
+        """Calculate age if date_of_birth exists"""
+        if hasattr(obj, 'get_age'):
+            return obj.get_age()
+        return None

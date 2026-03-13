@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
-import dj_database_url
+# import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -35,6 +35,7 @@ INSTALLED_APPS = [
         'channels',
         'drf_yasg',
         'drf_spectacular',
+        'django_filters',
         
         # Local apps
         'apps.accounts',
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
         'apps.families',
         'apps.relations',
         'apps.genealogy',
+        'apps.event_management',
         'apps.chat',
         'apps.posts',
         'admin_app',
@@ -81,21 +83,21 @@ WSGI_APPLICATION = 'kodi_core.wsgi.application'
 ASGI_APPLICATION = 'kodi_core.asgi.application'
 
     # Database
-# DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.postgresql',
-#             'NAME': config('DB_NAME', default='kodi_db'),
-#             'USER': config('DB_USER', default='myuser'),
-#             'PASSWORD': config('DB_PASSWORD', default='pass123'),
-#             'HOST': config('DB_HOST', default='localhost'),
-#             'PORT': config('DB_PORT', default='5432'),
-#         }
-#     }
-
 DATABASES = {
-    'default': dj_database_url.parse(
-'postgresql://kod_db_user:GmoKik2x9ugh7zm5QC8fEQIsS3OCKL6Y@dpg-d6m1klpaae7s73f9pc00-a.oregon-postgres.render.com/kod_db'    )
-}
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='kodi_db'),
+            'USER': config('DB_USER', default='myuser'),
+            'PASSWORD': config('DB_PASSWORD', default='pass123'),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+        }
+    }
+
+# DATABASES = {
+#     'default': dj_database_url.parse(
+# 'postgresql://kod_db_user:GmoKik2x9ugh7zm5QC8fEQIsS3OCKL6Y@dpg-d6m1klpaae7s73f9pc00-a.oregon-postgres.render.com/kod_db'    )
+# }
     # Password validation
 AUTH_PASSWORD_VALIDATORS = [
         {
