@@ -15,6 +15,7 @@ class EventType(models.Model):
     title = models.CharField(max_length=100)
     
     # Who created it
+    
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -263,7 +264,7 @@ class Event(models.Model):
         ('CANCELLED', 'Cancelled'),
         ('FLAGGED', 'Flagged'),
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     
     moderation_note = models.TextField(blank=True)
     moderated_by = models.ForeignKey(
@@ -318,9 +319,13 @@ class Event(models.Model):
         Check if this event is visible to a specific user
         Core filtering logic
         """
+        if user == self.created_by:
+            return True
         # Admin can see everything
         if user.is_staff:
             return True
+        if self.status == 'PENDING':
+            return self._is_connected(user)
         
         # Get user profile data
         try:

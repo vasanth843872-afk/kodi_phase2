@@ -19,6 +19,7 @@ router.register(r'auto-suggest/user', views.UserEnteredAutoSuggestViewSet, basen
 
 urlpatterns = [
     path('auth/login/', views.AdminLoginView.as_view(), name='admin-login'),
+    path('token/refresh/', views.TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/register/', views.CreateInitialAdminView.as_view(), name='admin-register'),
     path('profile/', views.AdminProfileView.as_view(), name='admin-profile'),
     path('dashboard/', views.AdminDashboardView.as_view(), name='admin-dashboard'),

@@ -602,10 +602,13 @@ class UserListSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
     # ✅ FIX: Get is_active directly from User model, not from staff_permissions
     is_active = serializers.BooleanField(read_only=True)  # Remove source parameter
+    staff_is_active = serializers.BooleanField(source='staff_permissions.is_active', read_only=True)
+
     
     class Meta:
         model = User
-        fields = ['id', 'mobile_number', 'email', 'is_active', 
+        fields = ['id', 'mobile_number', 'email', 'is_active', 'staff_is_active',
+
                   'is_mobile_verified', 'created_at', 'last_login', 'name']
     
     def get_name(self, obj):

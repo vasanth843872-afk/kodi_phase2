@@ -140,12 +140,30 @@ class RequestOTPView(APIView):
                     except Exception as e:
                         logger.error(f"Unexpected error in family creation: {str(e)}")
                     
+                    # ------------------------------
+                    # CHECK AUTO-LOGIN ELIGIBILITY
+                    # ------------------------------
+                    can_auto_login = False
+                    auto_login_token = None
+                    
+                    if user.is_mobile_verified and user.is_auto_login_enabled and user.auto_login_token:
+                        thirty_days_ago = timezone.now() - timedelta(days=30)
+                        if user.auto_login_last_used and user.auto_login_last_used > thirty_days_ago:
+                            can_auto_login = True
+                            auto_login_token = user.auto_login_token
+                        else:
+                            logger.info(f"Auto-login expired for user {user.id}")
+                    else:
+                        logger.debug(f"Auto-login not available for user {user.id}: verified={user.is_mobile_verified}, enabled={user.is_auto_login_enabled}, token_exists={bool(user.auto_login_token)}")
+                    
                     return Response(
                         {
                             'success': True,
                             'message': 'OTP sent successfully',
                             'mobile_number': user.mobile_number,
-                            'is_new_user': user.created_at > timezone.now() - timedelta(seconds=10)  # Rough estimate
+                            'is_new_user': user.created_at > timezone.now() - timedelta(seconds=10),
+                            'can_auto_login': can_auto_login,
+                            'auto_login_token': auto_login_token   # Only present if can_auto_login is True
                         },
                         status=status.HTTP_200_OK
                     )
@@ -1122,7 +1140,7 @@ class MobileNumberAutocompleteView(APIView):
         ).values('id', 'mobile_number')[:20]
         
         # Format for autocomplete libraries
-        results = [
+        results=[
             {
                 'id': user['id'],
                 'text': user['mobile_number'],

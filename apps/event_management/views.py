@@ -6,6 +6,7 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
+from apps.genealogy.models import PersonRelation,Person
 
 from .models import (
     Event, EventType, VisibilityLevel, RSVP, 
@@ -35,7 +36,8 @@ class EventTypeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, CanCreateEventType]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title']
-    ordering_fields = ['usage_count', 'created_at', 'title']
+    ordering_fields = ['start_date', 'end_date', 'created_at', 'view_count']
+    
     
     def get_queryset(self):
         user = self.request.user
@@ -84,20 +86,67 @@ class EventViewSet(viewsets.ModelViewSet):
     filterset_class = EventFilter
     search_fields = ['title', 'description', 'location_name', 'city']
     ordering_fields = ['start_date', 'created_at', 'view_count']
+    ordering = ['start_date']
     
     def get_queryset(self):
         queryset = Event.objects.all()
+        user = self.request.user
         
-        # Regular users only see approved events
-        if not self.request.user.is_staff:
-            queryset = queryset.filter(status='APPROVED')
+        # Admin sees everything
+        if user.is_staff:
+            return queryset.select_related(
+                'event_type', 'created_by', 'visibility'
+            ).prefetch_related('honorees')
         
-        # Annotate with user-specific data
+        # Get user's person record
+        try:
+            user_person = user.person_record
+        except Person.DoesNotExist:
+            # If no person record, only show approved events
+            return queryset.filter(status='APPROVED').select_related(
+                'event_type', 'created_by', 'visibility'
+            ).prefetch_related('honorees')
+        
+        # Get IDs of all people connected to this user
+        # via confirmed relations
+        connected_person_ids = []
+        
+        # People this user is connected TO (outgoing)
+        outgoing_connections = PersonRelation.objects.filter(
+            from_person=user_person,
+            status='confirmed'
+        ).values_list('to_person_id', flat=True)
+        
+        # People connected TO this user (incoming)
+        incoming_connections = PersonRelation.objects.filter(
+            to_person=user_person,
+            status='confirmed'
+        ).values_list('from_person_id', flat=True)
+        
+        # Combine all connected person IDs
+        connected_person_ids = list(outgoing_connections) + list(incoming_connections)
+        
+        # Get all users linked to these connected persons
+        connected_user_ids = Person.objects.filter(
+            id__in=connected_person_ids,
+            linked_user__isnull=False
+        ).values_list('linked_user_id', flat=True)
+        
+        # Now filter events:
+        # 1. All APPROVED events
+        # 2. PENDING events with CONNECTED visibility from connected users
+        queryset = queryset.filter(
+            Q(status='APPROVED') |
+            Q(
+                status='PENDING',
+                visibility__code='CONNECTED',
+                created_by_id__in=connected_user_ids
+            )
+        ).distinct()
+        
         return queryset.select_related(
             'event_type', 'created_by', 'visibility'
-        ).prefetch_related(
-            'honorees'
-        )
+        ).prefetch_related('honorees')
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -279,6 +328,30 @@ class EventViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    
+    @action(detail=True, methods=['get'], permission_classes=[IsAdminOrModerator])
+    def flags(self, request, pk=None):
+        """Get all flags for a specific event with reasons (Admin only)"""
+        event = self.get_object()
+        flags = event.flags.all().order_by('-created_at')
+        
+        # Group by reason for statistics
+        reason_counts = {}
+        for reason_code, reason_label in EventFlag.REASON_CHOICES:
+            count = flags.filter(reason=reason_code).count()
+            if count > 0:
+                reason_counts[reason_label] = count
+        
+        serializer = EventFlagSerializer(flags, many=True)
+        
+        return Response({
+            'event_id': event.id,
+            'event_title': event.title,
+            'event_status': event.status,
+            'total_flags': flags.count(),
+            'reason_breakdown': reason_counts,  # This shows counts by reason
+            'flags': serializer.data
+        })
     # ========== FILTERED LISTS ==========
     
     @action(detail=False, methods=['get'])
@@ -327,6 +400,78 @@ class EventViewSet(viewsets.ModelViewSet):
             context={'request': request}
         )
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def my_comment_replies(self, request):
+        """Get all replies to comments made by current user"""
+        # Get all comments made by current user
+        my_comments = EventComment.objects.filter(user=request.user)
+        
+        # Get replies to those comments
+        replies = EventComment.objects.filter(
+            parent__in=my_comments
+        ).select_related('user', 'parent').order_by('-created_at')
+        
+        serializer = EventCommentSerializer(replies, many=True)
+        return Response({
+            'count': replies.count(),
+            'replies': serializer.data
+        })
+    
+    
+    @action(detail=True, methods=['get', 'put', 'patch', 'delete'], url_path='comments/(?P<comment_id>[^/.]+)')
+    def comment_detail(self, request, pk=None, comment_id=None):
+        """
+        Retrieve, update or delete a comment/reply
+        GET: Get specific comment
+        PUT: Update entire comment
+        PATCH: Partially update comment
+        DELETE: Delete comment
+        """
+        event = self.get_object()
+        
+        # Get the comment
+        try:
+            comment = event.comments.get(id=comment_id)
+        except EventComment.DoesNotExist:
+            return Response(
+                {'error': 'Comment not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # GET - Retrieve comment
+        if request.method == 'GET':
+            serializer = EventCommentSerializer(comment)
+            return Response(serializer.data)
+        
+        # Check permission for modifications (only comment author or admin)
+        if request.method in ['PUT', 'PATCH', 'DELETE']:
+            if not (request.user.is_staff or comment.user == request.user):
+                return Response(
+                    {'error': 'You can only modify your own comments'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        # PUT/PATCH - Update comment
+        if request.method in ['PUT', 'PATCH']:
+            serializer = EventCommentSerializer(
+                comment,
+                data=request.data,
+                partial=(request.method == 'PATCH'),
+                context={'request': request}
+            )
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # DELETE - Remove comment
+        if request.method == 'DELETE':
+            comment.delete()
+            return Response(
+                {'message': 'Comment deleted successfully'},
+                status=status.HTTP_204_NO_CONTENT
+            )
     
     @action(detail=False, methods=['get'])
     def my_rsvps(self, request):
@@ -484,44 +629,74 @@ class EventConfigViewSet(viewsets.ViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    
     @action(detail=False, methods=['post'])
     def restrict_user(self, request):
-        """Restrict a specific user"""
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response(
-                {'error': 'user_id required'},
-                status=status.HTTP_400_BAD_REQUEST
+            """Restrict a specific user"""
+            user_id = request.data.get('user_id')
+            if not user_id:
+                return Response(
+                    {'error': 'user_id required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'User not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            restriction, created = UserRestriction.objects.get_or_create(
+                user=user,
+                defaults={'created_by': request.user}
             )
+            
+            # Update fields
+            fields = ['can_create_events', 'max_visibility', 'blocked_religions',
+                    'blocked_castes', 'blocked_families', 'restriction_reason']
+            
+            for field in fields:
+                if field in request.data:
+                    setattr(restriction, field, request.data[field])
+            
+            if 'restricted_to_visibility' in request.data:
+                visibility_ids = request.data['restricted_to_visibility']
+                restriction.restricted_to_visibility.set(visibility_ids)
+            
+            restriction.save()
+            
+            # Get first name from profile
+            first_name = "User"
+            if hasattr(user, 'profile') and user.profile:
+                first_name = user.profile.firstname or user.profile.first_name or "User"
+            elif hasattr(user, 'first_name'):
+                first_name = user.first_name
+            elif hasattr(user, 'get_full_name'):
+                first_name = user.get_full_name() or "User"
+            
+            return Response({'message': f'User {first_name} restricted successfully'})
         
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminOrModerator])
+    def user_restrictions(self, request):
+        user_id = request.query_params.get('user_id')
         try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {'error': 'User not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        restriction, created = UserRestriction.objects.get_or_create(
-            user=user,
-            defaults={'created_by': request.user}
-        )
-        
-        # Update fields
-        fields = ['can_create_events', 'max_visibility', 'blocked_religions',
-                 'blocked_castes', 'blocked_families', 'restriction_reason']
-        
-        for field in fields:
-            if field in request.data:
-                setattr(restriction, field, request.data[field])
-        
-        if 'restricted_to_visibility' in request.data:
-            visibility_ids = request.data['restricted_to_visibility']
-            restriction.restricted_to_visibility.set(visibility_ids)
-        
-        restriction.save()
-        
-        return Response({'message': f'User {user.username} restricted successfully'})
+            restriction = UserRestriction.objects.get(user_id=user_id)
+            restricted_visibilities = restriction.restricted_to_visibility.all()
+            
+            return Response({
+                'user_id': user_id,
+                'restricted_to_visibility': [
+                    {'id': v.id, 'name': v.name, 'code': v.code} 
+                    for v in restricted_visibilities
+                ],
+                'max_visibility': restriction.max_visibility,
+                'can_create_events': restriction.can_create_events
+            })
+        except UserRestriction.DoesNotExist:
+            return Response({'message': 'No restrictions'})

@@ -32,8 +32,8 @@ urlpatterns = [
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 
     
-    # path('api/chat/', include('apps.chat.urls')),
-    # path('api/posts/', include('apps.posts.urls')),
+    path('api/chat/', include('apps.chat.urls')),
+    path('api/posts/', include('apps.posts.urls')),
 ]
 
 if settings.DEBUG:

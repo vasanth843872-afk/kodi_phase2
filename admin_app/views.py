@@ -2,7 +2,8 @@ from rest_framework import viewsets, status,generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
@@ -122,13 +123,12 @@ class BaseModelViewSet(viewsets.ModelViewSet):
 
 class AdminLoginView(BaseAPIView):
     permission_classes = [AllowAny]
-    
+    authentication_classes = [] 
     def post(self, request):
         try:
             serializer = AdminLoginSerializer(data=request.data)
             if serializer.is_valid():
                 user = serializer.validated_data['user']
-                
                 # Get admin profile (contains email)
                 try:
                     admin_profile = AdminProfile.objects.get(user=user)
@@ -293,7 +293,40 @@ class CreateInitialAdminView(BaseAPIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-
+class AdminTokenRefreshView(TokenRefreshView):
+    """
+    Custom token refresh view that matches the response format of AdminLoginView
+    and adds logging.
+    """
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            logger.warning(f"Token refresh failed: {str(e)}")
+            raise InvalidToken(e.args[0])
+        
+        # Log successful refresh (optional)
+        try:
+            # You can extract user from refresh token if needed
+            # from rest_framework_simplejwt.tokens import RefreshToken
+            # refresh_token = RefreshToken(request.data.get('refresh'))
+            # user_id = refresh_token.get('user_id')
+            logger.info(f"Token refresh successful")
+        except Exception as log_error:
+            logger.error(f"Error logging token refresh: {str(log_error)}")
+        
+        # Return in the same format as login response (optional)
+        return Response({
+            'success': True,
+            'access': str(serializer.validated_data['access']),
+            # Optionally return a new refresh token (if rotating)
+            # 'refresh': str(serializer.validated_data.get('refresh', ''))
+        }, status=status.HTTP_200_OK)
+        
+        
 class AdminProfileView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
     
@@ -4260,3 +4293,4 @@ class PermissionTemplatesView(BaseAPIView):
             }
         }
         return Response(templates)
+    

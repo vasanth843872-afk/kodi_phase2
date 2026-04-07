@@ -8,7 +8,10 @@ from .views import( PersonViewSet, PersonRelationViewSet, TreeView, PersonDetail
     BulkInvitationActionView,
     SentInvitationsView,
     CancelSentInvitationView,
-    InvitationWithPathView
+    InvitationWithPathView,
+    RelationCategoryDrillDownView,
+    ConnectedPeoplesDashboardView,
+   FindRelationBetweenPeople
     )
 # from .views import (
 #     AshramamLabelsView,
@@ -76,6 +79,14 @@ urlpatterns = [
     path('invitations/check-new/', CheckNewInvitationsView.as_view(), name='check-new-invitations'),
     path('invitations/stats/', InvitationStatsView.as_view(), name='invitation-stats'),
     path('invitations/bulk-action/', BulkInvitationActionView.as_view(), name='bulk-invitation-action'),
+    
+    
+    path('relations/<str:relation_code>/categories/<str:category_code>/',
+         RelationCategoryDrillDownView.as_view(),
+         name='relation-category-drilldown'),
+    path('connected-peoples/', ConnectedPeoplesDashboardView.as_view(), name='connected-peoples'),
+    
+    path('relation-between/', FindRelationBetweenPeople.as_view(), name='relation-between'),
     
 ]
 

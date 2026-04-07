@@ -775,6 +775,10 @@ RELATION_COMPOSITION = {
     ("GRANDFATHER", "DAUGHTER"): "AUNT",
     ("GRANDMOTHER", "SON"): "UNCLE",
     ("GRANDMOTHER", "DAUGHTER"): "AUNT",
+    
+    
+    
+     ('ELDER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
 }
 
 
@@ -1117,6 +1121,20 @@ class RelationAutomationEngine:
     
     # Enhanced composition rules - COMPLETE SET
     RELATION_COMPOSITION_RULES = {
+        
+        # Sibling's spouses (both directions)
+        ('BROTHER', 'WIFE'): 'SISTER_IN_LAW',
+        ('ELDER_BROTHER', 'WIFE'): 'SISTER_IN_LAW',
+        ('YOUNGER_BROTHER', 'WIFE'): 'SISTER_IN_LAW',
+        
+        # Sister's husband
+        ('SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
+        ('ELDER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
+        ('YOUNGER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
+
+        
+      
+        ('YOUNGER_SISTER', 'WIFE'): 'BROTHER_IN_LAW',
         # Grandparents (Level 2)
         ('FATHER', 'FATHER'): 'GRANDFATHER',
         ('FATHER', 'MOTHER'): 'GRANDMOTHER',
@@ -1137,8 +1155,8 @@ class RelationAutomationEngine:
         ('MOTHER', 'YOUNGER_SISTER'): 'MOTHER_YOUNGER_SISTER',
         
         # Parents' spouses (Step-parents) - Level 2
-        ('FATHER', 'WIFE'): 'STEP_MOTHER',
-        ('MOTHER', 'HUSBAND'): 'STEP_FATHER',
+        ('FATHER', 'WIFE'): 'MOTHER',
+        ('MOTHER', 'HUSBAND'): 'FATHER',
         
         # Siblings - direct
         ('PARENT', 'SON'): 'BROTHER',

@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models import Q
+from django.conf import settings
 
 class FixedRelation(models.Model):
     """
@@ -36,6 +38,9 @@ class FixedRelation(models.Model):
     # Biological constraints
     max_instances = models.PositiveIntegerField(default=0, help_text="0 = unlimited")
     is_reciprocal_required = models.BooleanField(default=True)
+    
+    # Custom relation flag
+    is_custom = models.BooleanField(default=False, help_text="Whether this is a user-defined custom relation")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -294,3 +299,74 @@ class RelationProfileOverride(models.Model):
     #         self.district, self.state, self.nationality
     #     ]
     #     return sum(1 for field in fields if field)
+
+
+class UserConnection(models.Model):
+    """Model for managing user connections (friendships/follows)."""
+    
+    CONNECTION_TYPES = [
+        ('family', 'Family'),
+        ('friend', 'Friend'),
+        ('colleague', 'Colleague'),
+        ('community', 'Community'),
+        ('other', 'Other'),
+    ]
+    
+    user1 = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='connections_initiated'
+    )
+    user2 = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='connections_received'
+    )
+    connection_type = models.CharField(
+        max_length=20,
+        choices=CONNECTION_TYPES,
+        default='friend'
+    )
+    is_active = models.BooleanField(default=True)
+    is_blocked = models.BooleanField(default=False)
+    
+    # Who initiated the connection request
+    initiated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='connection_requests_made'
+    )
+    
+    # When the connection was established
+    established_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'user_connections'
+        unique_together = ('user1', 'user2')
+        indexes = [
+            models.Index(fields=['user1', 'is_active']),
+            models.Index(fields=['user2', 'is_active']),
+            models.Index(fields=['is_active', 'established_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user1.mobile_number} {self.user2.mobile_number} ({self.connection_type})"
+    
+    @classmethod
+    def are_users_connected(cls, user1, user2):
+        """Check if two users are connected."""
+        return cls.objects.filter(
+            Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1),
+            is_active=True,
+            is_blocked=False
+        ).exists()
+    
+    @classmethod
+    def get_user_connections(cls, user):
+        """Get all active connections for a user."""
+        return cls.objects.filter(
+            Q(user1=user) | Q(user2=user),
+            is_active=True,
+            is_blocked=False
+        ).select_related('user1', 'user2')

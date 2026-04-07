@@ -12,14 +12,13 @@ SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['192.168.1.11','127.0.0.1','kodi-phase2.onrender.com']
+ALLOWED_HOSTS = ['192.168.1.24','172.20.10.12','kodi-phase2.onrender.com','192.168.1.22','testserver','127.0.0.1']
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.11:3000",
+    "http://192.168.1.24:3000",
     ]
-
 
 INSTALLED_APPS = [
         'django.contrib.admin',
@@ -157,11 +156,23 @@ SIMPLE_JWT = {
     }
 
     # Channels (for chat)
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [("127.0.0.1", 6379)],   # local dev
+#             # For production (Upstash / Redis Cloud), use:
+#             # "hosts": [("your-redis-host.upstash.io", 6380)],
+#             # "CONFIG": {"hosts": [{"address": "rediss://default:<pass>@host:6380"}]},
+#         },
+#     },
+# }
+
 CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-        },
-    }
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
     # Media files
 MEDIA_URL = '/media/'

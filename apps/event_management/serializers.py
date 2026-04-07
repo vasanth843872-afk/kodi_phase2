@@ -11,7 +11,7 @@ from apps.genealogy.serializers import PersonBasicSerializer
 
 class EventTypeSerializer(serializers.ModelSerializer):
     """Simple event type serializer"""
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.firstname', read_only=True)
     
     class Meta:
         model = EventType
@@ -46,26 +46,37 @@ class VisibilityLevelSerializer(serializers.ModelSerializer):
 class EventListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for event listings"""
     event_type_title = serializers.CharField(source='event_type.title', read_only=True)
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    created_by_name = serializers.SerializerMethodField() 
     cover_image_url = serializers.SerializerMethodField()
     user_rsvp = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
     visibility_name = serializers.CharField(source='visibility.name', read_only=True)
     
     class Meta:
         model = Event
         fields = [
-            'id', 'title', 'event_type', 'event_type_title',
+            'id', 'title', 'event_type', 'event_type_title','description',
             'start_date', 'end_date', 'is_all_day',
             'location_name', 'city', 'is_virtual',
             'cover_image_url', 'created_by', 'created_by_name',
             'visibility', 'visibility_name', 'status',
             'rsvp_going', 'rsvp_maybe', 'rsvp_not_going',
-            'view_count', 'user_rsvp', 'created_at'
+            'view_count', 'user_rsvp', 'created_at','comment_count'
         ]
     
     def get_cover_image_url(self, obj):
         if obj.cover_image:
             return obj.cover_image.url
+        return None
+    
+    def get_created_by_name(self, obj):
+        """Get name from profile's firstname"""
+        if obj.created_by:
+            # Try to get from profile first (if you have a profile model)
+            if hasattr(obj.created_by, 'profile') and obj.created_by.profile:
+                return obj.created_by.profile.firstname or obj.created_by.username
+            # Fallback to user's first_name
+            return obj.created_by.firstname or obj.created_by.username
         return None
     
     def get_user_rsvp(self, obj):
@@ -80,6 +91,10 @@ class EventListSerializer(serializers.ModelSerializer):
             except:
                 pass
         return None
+    
+    def get_comment_count(self, obj):
+        """Get count of approved comments for this event"""
+        return obj.comments.filter(is_approved=True).count()
 
 
 class EventDetailSerializer(serializers.ModelSerializer):
@@ -201,16 +216,61 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
 # ==================== RSVP SERIALIZERS ====================
 
 class RSVPSerializer(serializers.ModelSerializer):
+    # Add these fields for user details
     user_name = serializers.CharField(source='user.username', read_only=True)
+    user_first_name = serializers.SerializerMethodField()
+    user_last_name = serializers.SerializerMethodField()
+    user_full_name = serializers.SerializerMethodField()
+    user_profile_image = serializers.SerializerMethodField()
     
     class Meta:
         model = RSVP
         fields = [
             'id', 'response', 'guests_count', 'guest_names',
             'dietary_restrictions', 'notes', 'created_at',
-            'user', 'user_name'
+            'user', 'user_name', 'user_first_name', 'user_last_name', 
+            'user_full_name', 'user_profile_image'
         ]
         read_only_fields = ['user', 'created_at']
+    
+    def get_user_first_name(self, obj):
+        """Get first name from UserProfile"""
+        if obj.user and hasattr(obj.user, 'profile'):
+            return obj.user.profile.firstname
+        return obj.user.username if obj.user else None
+    
+    def get_user_last_name(self, obj):
+        """Get second/third name from profile (combined as last name)"""
+        if obj.user and hasattr(obj.user, 'profile'):
+            profile = obj.user.profile
+            # Combine secondname and thirdname for last name
+            last_parts = []
+            if profile.secondname:
+                last_parts.append(profile.secondname)
+            if profile.thirdname:
+                last_parts.append(profile.thirdname)
+            return ' '.join(last_parts) if last_parts else ''
+        return ''
+    
+    def get_user_full_name(self, obj):
+        """Get full name from profile (firstname + secondname + thirdname)"""
+        if obj.user and hasattr(obj.user, 'profile'):
+            profile = obj.user.profile
+            name_parts = []
+            if profile.firstname:
+                name_parts.append(profile.firstname)
+            if profile.secondname:
+                name_parts.append(profile.secondname)
+            if profile.thirdname:
+                name_parts.append(profile.thirdname)
+            return ' '.join(name_parts) if name_parts else obj.user.username
+        return obj.user.username if obj.user else None
+    
+    def get_user_profile_image(self, obj):
+        """Get profile image URL"""
+        if obj.user and hasattr(obj.user, 'profile') and obj.user.profile.image:
+            return obj.user.profile.image.url
+        return None
     
     def validate(self, data):
         """Check if event is in future"""
