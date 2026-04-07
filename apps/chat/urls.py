@@ -57,4 +57,5 @@ urlpatterns = [
     path('admin/groups/<int:room_id>/remove/<int:user_id>/', AdminRemoveFromGroupView.as_view(), name='admin-remove-from-group'),
     path('admin/blocked/', AdminBlockedList.as_view(), name='admin-blocked-list'),
     
+    
 ]
