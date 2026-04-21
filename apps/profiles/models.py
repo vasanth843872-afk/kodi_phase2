@@ -52,8 +52,8 @@ class UserProfile(models.Model):
     
     # Additional fields
     preferred_language = models.CharField(max_length=50, default='en',choices=LANGUAGE_CHOICES,)
-    religion = models.CharField(max_length=100, blank=True)
-    caste = models.CharField(max_length=100, blank=True)
+    lifestyle = models.CharField(max_length=100, blank=True)
+    familyname8 = models.CharField(max_length=100, blank=True)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -63,7 +63,7 @@ class UserProfile(models.Model):
         db_table = 'user_profiles'
         indexes = [
             models.Index(fields=['user', 'gender']),
-            models.Index(fields=['religion', 'caste']),
+            models.Index(fields=['lifestyle', 'familyname8']),
         ]
     
     def __str__(self):
@@ -104,6 +104,6 @@ class UserProfile(models.Model):
             'familyname3': self.familyname3,
             'familyname4': self.familyname4,
             'familyname5': self.familyname5,
-            'religion': self.religion,
-            'caste': self.caste,
+            'lifestyle': self.lifestyle,
+            'familyname8': self.familyname8,
         }

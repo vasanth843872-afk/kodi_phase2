@@ -382,8 +382,8 @@ class PersonViewSet(viewsets.ModelViewSet):
             result = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=language,
-                religion=getattr(user_profile, 'religion', '') if user_profile else '',
-                caste=getattr(user_profile, 'caste', '') if user_profile else '',
+                lifestyle=getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                familyname8=getattr(user_profile, 'familyname8', '') if user_profile else '',
                 family_name=viewer_person.family.family_name if viewer_person.family else '',
                 native=getattr(user_profile, 'native', '') if user_profile else '',
                 present_city=getattr(user_profile, 'present_city', '') if user_profile else '',
@@ -1745,8 +1745,8 @@ class PersonViewSet(viewsets.ModelViewSet):
         
         profile_context = {
             'language': language,
-            'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-            'caste': getattr(user_profile, 'caste', '') if user_profile else '',
+            'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+            'familyname8': getattr(user_profile, 'familyname8', '') if user_profile else '',
             'family': person.family.family_name if person.family else '',
             'native': getattr(user_profile, 'native', '') if user_profile else '',
             'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
@@ -1783,8 +1783,8 @@ class PersonViewSet(viewsets.ModelViewSet):
         filter_context = {
             'relation': fixed_relation,
             'language': language,
-            'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-            'caste': getattr(user_profile, 'caste', '') if user_profile else '',
+            'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+            'familyname8': getattr(user_profile, 'familyname8', '') if user_profile else '',
             'family': person.family.family_name if person.family else '',
             'native': getattr(user_profile, 'native', '') if user_profile else '',
             'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
@@ -2334,8 +2334,8 @@ class PersonViewSet(viewsets.ModelViewSet):
             # Prepare context based on your working example
             context = {
                 'language': getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-                'caste': getattr(user_profile, 'caste', '') if user_profile else '',
+                'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                'familyname8': getattr(user_profile, 'familyname8', '') if user_profile else '',
                 'family_name': family_name,
                 'native': getattr(user_profile, 'native', '') if user_profile else '',
                 'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
@@ -2350,8 +2350,8 @@ class PersonViewSet(viewsets.ModelViewSet):
             result = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=context['language'],
-                religion=context['religion'],
-                caste=context['caste'],
+                lifestyle=context['lifestyle'],
+                familyname8=context['familyname8'],
                 family_name=context['family_name'],
                 native=context['native'],
                 present_city=context['present_city'],
@@ -2376,8 +2376,8 @@ class PersonViewSet(viewsets.ModelViewSet):
                     "label_source": "standard",
                     "label_metadata": {
                         "language": context['language'],
-                        "religion": context['religion'],
-                        "caste": context['caste'],
+                        "lifestyle": context['lifestyle'],
+                        "familyname8": context['familyname8'],
                         "family": context['family_name'],
                         "native": context['native'],
                         "present_city": context['present_city'],
@@ -2418,8 +2418,8 @@ class PersonViewSet(viewsets.ModelViewSet):
                 if 'label_metadata' not in result:
                     result['label_metadata'] = {
                         "language": context['language'],
-                        "religion": context['religion'],
-                        "caste": context['caste'],
+                        "lifestyle": context['lifestyle'],
+                        "familyname8": context['familyname8'],
                         "family": context['family_name'],
                         "native": context['native'],
                         "present_city": context['present_city'],
@@ -2445,8 +2445,8 @@ class PersonViewSet(viewsets.ModelViewSet):
                 "label_source": "standard",
                 "label_metadata": {
                     "language": context['language'],
-                    "religion": context['religion'],
-                    "caste": context['caste'],
+                    "lifestyle": context['lifestyle'],
+                    "familyname8": context['familyname8'],
                     "family": context['family_name'],
                     "native": context['native'],
                     "present_city": context['present_city'],
@@ -2478,8 +2478,8 @@ class PersonViewSet(viewsets.ModelViewSet):
                 "label_source": "error",
                 "label_metadata": {
                     "language": getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                    "religion": getattr(user_profile, 'religion', '') if user_profile else '',
-                    "caste": getattr(user_profile, 'caste', '') if user_profile else '',
+                    "lifestyle": getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                    "familyname8": getattr(user_profile, 'familyname8', '') if user_profile else '',
                     "family": family_name,
                     "native": getattr(user_profile, 'native', '') if user_profile else '',
                     "present_city": getattr(user_profile, 'present_city', '') if user_profile else '',
@@ -3916,34 +3916,34 @@ class PersonViewSet(viewsets.ModelViewSet):
             print(f"Action info: {action_info}")
             
             # Check for exclusive relations (can only have one father, mother, spouse)
-            exclusive_actions = ['add_father', 'add_mother', 'add_husband', 'add_wife', 'add_spouse']
+            # exclusive_actions = ['add']
             
-            if action in exclusive_actions:
-                relation_code = action_info['code']
+            # if action in exclusive_actions:
+            #     relation_code = action_info['code']
                 
-                if action in ['add_father', 'add_mother']:
-                    exists = PersonRelation.objects.filter(
-                        to_person=person,
-                        relation__relation_code=relation_code,
-                        status__in=['confirmed', 'pending']
-                    ).exists()
+            #     if action in ['add', 'add']:
+            #         exists = PersonRelation.objects.filter(
+            #             to_person=person,
+            #             relation__relation_code=relation_code,
+            #             status__in=['confirmed', 'pending']
+            #         ).exists()
                     
-                    if exists:
-                        raise DuplicateRelationError(
-                            f'{person.full_name} already has a {action.replace("add_", "")}'
-                        )
+            #         if exists:
+            #             raise DuplicateRelationError(
+            #                 f'{person.full_name} already has a {action.replace("add_", "")}'
+            #             )
                         
-                elif action in ['add_husband', 'add_wife', 'add_spouse']:
-                    exists = PersonRelation.objects.filter(
-                        Q(from_person=person) | Q(to_person=person),
-                        relation__relation_code__in=['HUSBAND', 'WIFE', 'SPOUSE'],
-                        status__in=['confirmed', 'pending']
-                    ).exists()
+            #     elif action in ['add', 'add', 'add']:
+            #         exists = PersonRelation.objects.filter(
+            #             Q(from_person=person) | Q(to_person=person),
+            #             relation__relation_code__in=['HUSB', 'WIFE', 'SPOUSE'],
+            #             status__in=['confirmed', 'pending']
+            #         ).exists()
                     
-                    if exists:
-                        raise DuplicateRelationError(
-                            f'{person.full_name} already has a spouse'
-                        )
+            #         if exists:
+            #             raise DuplicateRelationError(
+            #                 f'{person.full_name} already has a spouse'
+            #             )
             
             # Determine gender for the new person
             gender = action_info['gender']
@@ -4077,7 +4077,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                             'type': fixed_relation.relation_code,
                             'label': fixed_relation.default_english,
                             'status': person_relation.status,
-                            'direction': direction_description
+                            'direction': direction_description,
+                            'birth_order': person_relation.birth_order,
+                            'display_with_order': person_relation.get_display_name_with_order()
                         },
                         'next_actions': [
                             {
@@ -4924,8 +4926,8 @@ class PersonViewSet(viewsets.ModelViewSet):
                         label = RelationLabelService.get_relation_label(
                             relation_code=relation_code,
                             language=language,
-                            religion=getattr(request.user.profile, 'religion', ''),
-                            caste=getattr(request.user.profile, 'caste', '')
+                            lifestyle=getattr(request.user.profile, 'lifestyle', ''),
+                            familyname8=getattr(request.user.profile, 'familyname8', '')
                         )["label"]
                     
                     member_data = PersonSerializer(
@@ -5513,8 +5515,8 @@ class PersonViewSet(viewsets.ModelViewSet):
                     label_result = RelationLabelService.get_relation_label(
                         relation_code=relation_code,
                         language=getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                        religion=getattr(user_profile, 'religion', '') if user_profile else '',
-                        caste=getattr(user_profile, 'caste', '') if user_profile else '',
+                        lifestyle=getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                        familyname8=getattr(user_profile, 'familyname8', '') if user_profile else '',
                         family_name=family_name,
                         native=getattr(user_profile, 'native', '') if user_profile else '',
                         present_city=getattr(user_profile, 'present_city', '') if user_profile else '',
@@ -8633,8 +8635,8 @@ class RelationCategoryDrillDownView(APIView):
         label_info = RelationLabelService.get_relation_label(
             relation_code=relation_code,
             language=lang,
-            religion=getattr(profile, 'religion', None) if profile else None,
-            caste=getattr(profile, 'caste', None) if profile else None,
+            lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+            familyname8=getattr(profile, 'familyname8', None) if profile else None,
             family_name=getattr(profile, 'familyname1', None) if profile else None,
             native=getattr(profile, 'native', None) if profile else None,
             present_city=getattr(profile, 'present_city', None) if profile else None,
@@ -8655,8 +8657,8 @@ class RelationCategoryDrillDownView(APIView):
             label_info = RelationLabelService.get_relation_label(
                 relation_code=category_code,
                 language=lang,
-                religion=getattr(profile, 'religion', None) if profile else None,
-                caste=getattr(profile, 'caste', None) if profile else None,
+                lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+                familyname8=getattr(profile, 'familyname8', None) if profile else None,
                 family_name=getattr(profile, 'familyname1', None) if profile else None,
             )
             return label_info['label']
@@ -8797,8 +8799,8 @@ class ConnectedPeoplesDashboardView(APIView):
         profile = getattr(user, 'profile', None)
         context = {
             'language': getattr(profile, 'preferred_language', 'ta') if profile else 'ta',
-            'religion': getattr(profile, 'religion', None) if profile else None,
-            'caste': getattr(profile, 'caste', None) if profile else None,
+            'lifestyle': getattr(profile, 'lifestyle', None) if profile else None,
+            'familyname8': getattr(profile, 'familyname8', None) if profile else None,
             'family_name': getattr(profile, 'familyname1', None) if profile else None,
             'native': getattr(profile, 'native', None) if profile else None,
             'present_city': getattr(profile, 'present_city', None) if profile else None,
@@ -8959,8 +8961,8 @@ class ConnectedPeoplesDashboardView(APIView):
             label_info = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=lang,
-                religion=getattr(profile, 'religion', None) if profile else None,
-                caste=getattr(profile, 'caste', None) if profile else None,
+                lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+                familyname8=getattr(profile, 'familyname8', None) if profile else None,
                 family_name=getattr(profile, 'familyname1', None) if profile else None,
             )
             return label_info['label']
@@ -8974,8 +8976,8 @@ class ConnectedPeoplesDashboardView(APIView):
             label_info = RelationLabelService.get_relation_label(
                 relation_code=category_code,
                 language=lang,
-                religion=getattr(profile, 'religion', None) if profile else None,
-                caste=getattr(profile, 'caste', None) if profile else None,
+                lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+                familyname8=getattr(profile, 'familyname8', None) if profile else None,
                 family_name=getattr(profile, 'familyname1', None) if profile else None,
             )
             return label_info['label']
@@ -9230,8 +9232,8 @@ class FindRelationBetweenPeople(APIView):
             return {}
         return {
             'language': getattr(profile, 'preferred_language', 'en'),
-            'religion': getattr(profile, 'religion', ''),
-            'caste': getattr(profile, 'caste', ''),
+            'lifestyle': getattr(profile, 'lifestyle', ''),
+            'familyname8': getattr(profile, 'familyname8', ''),
             'family_name': getattr(profile, 'familyname1', ''),
             'native': getattr(profile, 'native', ''),
             'present_city': getattr(profile, 'present_city', ''),
@@ -9247,8 +9249,8 @@ class FindRelationBetweenPeople(APIView):
             result = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=context.get('language', 'en'),
-                religion=context.get('religion', ''),
-                caste=context.get('caste', ''),
+                lifestyle=context.get('lifestyle', ''),
+                familyname8=context.get('familyname8', ''),
                 family_name=context.get('family_name', ''),
                 native=context.get('native', ''),
                 present_city=context.get('present_city', ''),

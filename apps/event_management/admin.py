@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.utils import timezone
 from .models import (
     Event, EventType, VisibilityLevel, EventConfig,
     RSVP, EventMedia, EventComment, EventFlag, UserRestriction
 )
+from apps.notifications.services import NotificationService, get_user_display_name
 
 @admin.register(EventType)
 class EventTypeAdmin(admin.ModelAdmin):
@@ -28,13 +30,13 @@ class EventConfigAdmin(admin.ModelAdmin):
         }),
         ('Auto-Filters', {
             'fields': (
-                'enable_religion_filter', 'enable_caste_filter',
+                'enable_lifestyle_filter', 'enable_familyname8_filter',
                 'enable_family_filter', 'enable_location_filter',
                 'enable_connection_filter'
             )
         }),
         ('Block Lists', {
-            'fields': ('blocked_religions', 'blocked_castes', 'blocked_families', 'blocked_locations')
+            'fields': ('blocked_lifestyles', 'blocked_familyname8s', 'blocked_families', 'blocked_locations')
         }),
         ('Moderation', {
             'fields': ('require_moderation', 'auto_approve_trusted_users')
@@ -80,7 +82,7 @@ class EventAdmin(admin.ModelAdmin):
         }),
         ('Visibility', {
             'fields': (
-                'visibility', 'target_religions', 'target_castes',
+                'visibility', 'target_lifestyles', 'target_familyname8s',
                 'target_families', 'target_locations', 'invited_users',
                 'invited_persons', 'excluded_users'
             )
@@ -102,24 +104,57 @@ class EventAdmin(admin.ModelAdmin):
     actions = ['approve_events', 'reject_events', 'make_public']
     
     def approve_events(self, request, queryset):
-        queryset.update(
-            status='APPROVED',
-            moderated_by=request.user,
-            moderated_at=timezone.now()
-        )
+        for event in queryset:
+            old_status = event.status
+            event.status = 'APPROVED'
+            event.moderated_by = request.user
+            event.moderated_at = timezone.now()
+            event.save()
+            
+            # Send notification to event creator
+            if old_status != 'APPROVED':
+                NotificationService.create_event_notification(
+                    event=event,
+                    notification_type='event_updated',
+                    users=[event.created_by],
+                    message=f"Admin {get_user_display_name(request.user)} approved your event '{event.title}'",
+                    actor=request.user
+                )
     approve_events.short_description = "Approve selected events"
     
     def reject_events(self, request, queryset):
-        queryset.update(
-            status='REJECTED',
-            moderated_by=request.user,
-            moderated_at=timezone.now()
-        )
+        for event in queryset:
+            event.status = 'REJECTED'
+            event.moderated_by = request.user
+            event.moderated_at = timezone.now()
+            event.save()
+            
+            # Send notification to event creator
+            NotificationService.create_event_notification(
+                event=event,
+                notification_type='event_updated',
+                users=[event.created_by],
+                message=f"Admin {get_user_display_name(request.user)} rejected your event '{event.title}'",
+                actor=request.user
+            )
     reject_events.short_description = "Reject selected events"
     
     def make_public(self, request, queryset):
         public = VisibilityLevel.objects.get(code='PUBLIC')
-        queryset.update(visibility=public)
+        for event in queryset:
+            old_visibility = event.visibility
+            event.visibility = public
+            event.save()
+            
+            # Send notification to event creator if visibility changed
+            if old_visibility != public:
+                NotificationService.create_event_notification(
+                    event=event,
+                    notification_type='event_updated',
+                    users=[event.created_by],
+                    message=f"Admin {get_user_display_name(request.user)} made your event '{event.title}' public",
+                    actor=request.user
+                )
     make_public.short_description = "Make selected events public"
 
 

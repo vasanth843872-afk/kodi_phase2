@@ -43,8 +43,19 @@ class IsAdminOrModerator(permissions.BasePermission):
     Only admin or moderator can moderate
     """
     def has_permission(self, request, view):
-        return request.user.is_staff or request.user.groups.filter(name='Moderators').exists()
+        if not request.user or not request.user.is_authenticated:
+            return False
 
+        # 1. Admin / superuser always allowed
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+
+        # 2. Check staff permission
+        try:
+            staff_perm = StaffPermission.objects.get(user=request.user)
+            return staff_perm.is_active and staff_perm.can_manage_event
+        except StaffPermission.DoesNotExist:
+            return False
 
 class CanCreateEventType(permissions.BasePermission):
     """

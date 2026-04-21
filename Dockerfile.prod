@@ -1,0 +1,65 @@
+# Production Dockerfile for KODI3
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        postgresql-client \
+        build-essential \
+        libpq-dev \
+        gettext \
+        curl \
+        nginx \
+        supervisor \
+        procps \
+        netcat \
+        && rm -rf /var/lib/apt/lists/*
+
+# Set work directory
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements_production.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install -r requirements_production.txt
+
+# Copy project
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p logs staticfiles media
+
+# Collect static files
+RUN python manage.py collectstatic --noinput --settings=kodi_core.production_settings
+
+# Create supervisor configuration
+RUN echo "[program:web]" > /etc/supervisor/conf.d/web.conf \
+    && echo "command=gunicorn kodi_core.wsgi:application --bind 0.0.0.0:8000" >> /etc/supervisor/conf.d/web.conf \
+    && echo "directory=/app" >> /etc/supervisor/conf.d/web.conf \
+    && echo "autostart=true" >> /etc/supervisor/conf.d/web.conf \
+    && echo "autorestart=true" >> /etc/supervisor/conf.d/web.conf \
+    && echo "redirect_stderr=true" >> /etc/supervisor/conf.d/web.conf \
+    && echo "stdout_logfile=/var/log/web.log" >> /etc/supervisor/conf.d/web.conf
+
+RUN echo "[program:celery]" > /etc/supervisor/conf.d/celery.conf \
+    && echo "command=celery -A kodi_core worker --loglevel=info" >> /etc/supervisor/conf.d/celery.conf \
+    && echo "directory=/app" >> /etc/supervisor/conf.d/celery.conf \
+    && echo "autostart=true" >> /etc/supervisor/conf.d/celery.conf \
+    && echo "autorestart=true" >> /etc/supervisor/conf.d/celery.conf \
+    && echo "redirect_stderr=true" >> /etc/supervisor/conf.d/celery.conf \
+    && echo "stdout_logfile=/var/log/celery.log" >> /etc/supervisor/conf.d/celery.conf
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health/ || exit 1
+
+# Start supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

@@ -20,8 +20,18 @@ class FixedRelation(models.Model):
     relation_code = models.CharField(max_length=50, unique=True, db_index=True)
     default_english = models.CharField(max_length=100)
     default_tamil = models.CharField(max_length=100)
-    category = models.CharField(max_length=50, choices=RELATION_CATEGORIES)
+    category = models.CharField(max_length=50, choices=RELATION_CATEGORIES,blank=True,null=True)
     is_active = models.BooleanField(default=True, help_text="Whether this relation is currently active/available")
+    composition_token = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Optional token used for path composition. If blank, derived from default_english."
+    )
+    match_token = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Token used to match composed paths. If blank, derived from default_english."
+    )
     
     # Gender restrictions (optional)
     from_gender = models.CharField(max_length=1, choices=[
@@ -68,40 +78,40 @@ class FixedRelation(models.Model):
         }
         return reciprocal_map.get(self.relation_code)
     
-    def get_localized_name(self, language='en', religion='', caste='', family=''):
+    def get_localized_name(self, language='en', lifestyle='', familyname8='', family=''):
         """
         Get relation name with localization hierarchy:
         1. Family-specific (highest priority)
-        2. Caste-specific
-        3. Language+Religion specific
+        2. familyname8-specific
+        3. Language+lifestyle specific
         4. FixedRelation defaults (lowest priority)
         """
         # Level 1: Family-specific
         if family:
             family_label = self.family_labels.filter(
                 language=language,
-                religion=religion,
-                caste=caste,
+                lifestyle=lifestyle,
+                familyname8=familyname8,
                 family=family
             ).first()
             if family_label:
                 return family_label.label
         
-        # Level 2: Caste-specific
-        if caste:
-            caste_label = self.caste_labels.filter(
+        # Level 2: familyname8-specific
+        if familyname8:
+            familyname8_label = self.familyname8_labels.filter(
                 language=language,
-                religion=religion,
-                caste=caste
+                lifestyle=lifestyle,
+                familyname8=familyname8
             ).first()
-            if caste_label:
-                return caste_label.label
+            if familyname8_label:
+                return familyname8_label.label
         
-        # Level 3: Language+Religion specific
-        if religion:
-            lang_rel_label = self.language_religion_labels.filter(
+        # Level 3: Language+lifestyle specific
+        if lifestyle:
+            lang_rel_label = self.language_lifestyle_labels.filter(
                 language=language,
-                religion=religion
+                lifestyle=lifestyle
             ).first()
             if lang_rel_label:
                 return lang_rel_label.label
@@ -115,52 +125,52 @@ class FixedRelation(models.Model):
         # Fallback
         return self.default_english or self.relation_code
 
-class RelationLanguageReligion(models.Model):
+class RelationLanguagelifestyle(models.Model):
     """
-    Level 3: Language + Religion specific labels.
+    Level 3: Language + lifestyle specific labels.
     Falls back to FixedRelation defaults.
     """
-    relation = models.ForeignKey(FixedRelation, on_delete=models.CASCADE, related_name='language_religion_labels')
+    relation = models.ForeignKey(FixedRelation, on_delete=models.CASCADE, related_name='language_lifestyle_labels')
     language = models.CharField(max_length=50, db_index=True)
-    religion = models.CharField(max_length=100, db_index=True)
+    lifestyle = models.CharField(max_length=100, db_index=True)
     label = models.CharField(max_length=200)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        db_table = 'relation_language_religion'
-        unique_together = ('relation', 'language', 'religion')
+        db_table = 'relation_language_lifestyle'
+        unique_together = ('relation', 'language', 'lifestyle')
         indexes = [
-            models.Index(fields=['language', 'religion']),
+            models.Index(fields=['language', 'lifestyle']),
         ]
     
     def __str__(self):
-        return f"{self.relation.relation_code} - {self.language}/{self.religion}: {self.label}"
+        return f"{self.relation.relation_code} - {self.language}/{self.lifestyle}: {self.label}"
 
-class RelationCaste(models.Model):
+class Relationfamilyname8(models.Model):
     """
-    Level 2: Language + Religion + Caste specific labels.
+    Level 2: Language + lifestyle + familyname8 specific labels.
     Overrides Level 3.
     """
-    relation = models.ForeignKey(FixedRelation, on_delete=models.CASCADE, related_name='caste_labels')
+    relation = models.ForeignKey(FixedRelation, on_delete=models.CASCADE, related_name='familyname8_labels')
     language = models.CharField(max_length=50, db_index=True)
-    religion = models.CharField(max_length=100, db_index=True)
-    caste = models.CharField(max_length=100, db_index=True)
+    lifestyle = models.CharField(max_length=100, db_index=True)
+    familyname8 = models.CharField(max_length=100, db_index=True)
     label = models.CharField(max_length=200)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        db_table = 'relation_caste'
-        unique_together = ('relation', 'language', 'religion', 'caste')
+        db_table = 'relation_familyname8'
+        unique_together = ('relation', 'language', 'lifestyle', 'familyname8')
         indexes = [
-            models.Index(fields=['language', 'religion', 'caste']),
+            models.Index(fields=['language', 'lifestyle', 'familyname8']),
         ]
     
     def __str__(self):
-        return f"{self.relation.relation_code} - {self.language}/{self.religion}/{self.caste}: {self.label}"
+        return f"{self.relation.relation_code} - {self.language}/{self.lifestyle}/{self.familyname8}: {self.label}"
 
 class RelationFamily(models.Model):
     """
@@ -169,8 +179,8 @@ class RelationFamily(models.Model):
     """
     relation = models.ForeignKey(FixedRelation, on_delete=models.CASCADE, related_name='family_labels')
     language = models.CharField(max_length=50, db_index=True)
-    religion = models.CharField(max_length=100, db_index=True)
-    caste = models.CharField(max_length=100, db_index=True)
+    lifestyle = models.CharField(max_length=100, db_index=True)
+    familyname8 = models.CharField(max_length=100, db_index=True)
     family = models.CharField(max_length=200, db_index=True, help_text="Family name or identifier")
     label = models.CharField(max_length=200)
     
@@ -179,7 +189,7 @@ class RelationFamily(models.Model):
     
     class Meta:
         db_table = 'relation_family'
-        unique_together = ('relation', 'language', 'religion', 'caste', 'family')
+        unique_together = ('relation', 'language', 'lifestyle', 'familyname8', 'family')
         indexes = [
             models.Index(fields=['family', 'language']),
         ]
@@ -192,7 +202,7 @@ class RelationFamily(models.Model):
 class RelationProfileOverride(models.Model):
     """
     Complete override model that includes ALL profile fields:
-    - Basic: language, religion, caste, family
+    - Basic: language, lifestyle, familyname8, family
     - Location: native, present_city, taluk, district, state, nationality
     """
     relation = models.ForeignKey(
@@ -203,8 +213,8 @@ class RelationProfileOverride(models.Model):
     
     # Basic fields (from existing overrides)
     language = models.CharField(max_length=10, choices=[('en', 'English'), ('ta', 'Tamil')], default='en')
-    religion = models.CharField(max_length=100, blank=True, null=True)
-    caste = models.CharField(max_length=100, blank=True, null=True)
+    lifestyle = models.CharField(max_length=100, blank=True, null=True)
+    familyname8 = models.CharField(max_length=100, blank=True, null=True)
     family = models.CharField(max_length=200, blank=True, null=True)
     
     # Profile location fields (NEW)
@@ -227,9 +237,9 @@ class RelationProfileOverride(models.Model):
         db_table = 'relation_profile_overrides'
         indexes = [
             # Basic combinations
-            models.Index(fields=['relation', 'language', 'religion']),
-            models.Index(fields=['relation', 'language', 'religion', 'caste']),
-            models.Index(fields=['relation', 'language', 'religion', 'caste', 'family']),
+            models.Index(fields=['relation', 'language', 'lifestyle']),
+            models.Index(fields=['relation', 'language', 'lifestyle', 'familyname8']),
+            models.Index(fields=['relation', 'language', 'lifestyle', 'familyname8', 'family']),
             
             # Location combinations
             models.Index(fields=['relation', 'native', 'present_city']),
@@ -238,22 +248,22 @@ class RelationProfileOverride(models.Model):
             models.Index(fields=['relation', 'state', 'district', 'taluk']),
             
             # Mixed combinations
-            models.Index(fields=['relation', 'religion', 'state']),
-            models.Index(fields=['relation', 'caste', 'district']),
+            models.Index(fields=['relation', 'lifestyle', 'state']),
+            models.Index(fields=['relation', 'familyname8', 'district']),
         ]
         # Unique constraint on all fields to prevent duplicates
         unique_together = [
-            ['relation', 'language', 'religion', 'caste', 'family', 
+            ['relation', 'language', 'lifestyle', 'familyname8', 'family', 
              'native', 'present_city', 'taluk', 'district', 'state', 'nationality']
         ]
     
     def __str__(self):
         parts = [f"{self.relation.relation_code}"]
         
-        if self.religion:
-            parts.append(f"religion={self.religion}")
-        if self.caste:
-            parts.append(f"caste={self.caste}")
+        if self.lifestyle:
+            parts.append(f"lifestyle={self.lifestyle}")
+        if self.familyname8:
+            parts.append(f"familyname8={self.familyname8}")
         if self.family:
             parts.append(f"family={self.family}")
         if self.native:
@@ -276,8 +286,8 @@ class RelationProfileOverride(models.Model):
         """Return list of fields that have non-empty values."""
         fields = []
         if self.language: fields.append('language')
-        if self.religion: fields.append('religion')
-        if self.caste: fields.append('caste')
+        if self.lifestyle: fields.append('lifestyle')
+        if self.familyname8: fields.append('familyname8')
         if self.family: fields.append('family')
         if self.native: fields.append('native')
         if self.present_city: fields.append('present_city')
@@ -294,7 +304,7 @@ class RelationProfileOverride(models.Model):
     # def get_specificity_score(self):
     #     """Calculate how specific this override is (higher = more specific)."""
     #     fields = [
-    #         self.family, self.caste, self.religion,
+    #         self.family, self.familyname8, self.lifestyle,
     #         self.native, self.present_city, self.taluk,
     #         self.district, self.state, self.nationality
     #     ]

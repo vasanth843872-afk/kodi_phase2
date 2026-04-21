@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/genealogy/', include('apps.genealogy.urls')),
     path('api/event_management/', include('apps.event_management.urls')),
     path('api/admin/', include('admin_app.urls')),
+    path('', include('apps.notifications.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 

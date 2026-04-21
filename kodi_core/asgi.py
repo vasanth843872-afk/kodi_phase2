@@ -14,12 +14,13 @@ django_asgi_app = get_asgi_application()
 from apps.chat.middleware import JWTAuthMiddlewareStack
 from apps.chat.routing import websocket_urlpatterns as chat_ws
 from apps.genealogy.routing import websocket_urlpatterns as genealogy_ws
+from apps.notifications.routing import websocket_urlpatterns as notifications_ws
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": JWTAuthMiddlewareStack(
         URLRouter(
-            chat_ws + genealogy_ws   # combine all WS routes
+            chat_ws + genealogy_ws + notifications_ws   # combine all WS routes
         )
     ),
 })

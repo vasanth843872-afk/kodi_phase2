@@ -480,6 +480,8 @@ class PersonRelationSerializer(serializers.ModelSerializer, BaseSerializerMixin)
     to_person_name = serializers.CharField(source='to_person.full_name', read_only=True)
     relation_code = serializers.CharField(source='relation.relation_code', read_only=True)
     relation_label = serializers.SerializerMethodField()
+    birth_order = serializers.IntegerField(read_only=True)
+    display_with_order = serializers.SerializerMethodField()
     
     # Profile picture fields
     from_person_profile_picture = serializers.SerializerMethodField()
@@ -502,7 +504,7 @@ class PersonRelationSerializer(serializers.ModelSerializer, BaseSerializerMixin)
         fields = [
             'id', 'from_person', 'from_person_name', 'from_person_profile_picture',
             'to_person', 'to_person_name', 'to_person_profile_picture',
-            'relation', 'relation_code', 'relation_label',
+            'relation', 'relation_code', 'relation_label', 'birth_order', 'display_with_order',
             'brick_person_id', 'brick_person_name', 'brick_person_gender',
             'brick_label', 'arrow_label',
             'status', 'conflict_reason',
@@ -1007,6 +1009,14 @@ class PersonRelationSerializer(serializers.ModelSerializer, BaseSerializerMixin)
         except Exception as e:
             logger.error(f"Error detecting conflicts for relation {obj.id}: {str(e)}")
             return []
+
+    def get_display_with_order(self, obj) -> str:
+        """Get relation label with birth order for family relations."""
+        try:
+            return obj.get_display_name_with_order(self.get_preferred_language())
+        except Exception as e:
+            logger.error(f"Error getting display name with order: {str(e)}")
+            return obj.relation.relation_code
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate relation data with comprehensive checks."""
@@ -1678,8 +1688,8 @@ class InvitationListSerializer(serializers.ModelSerializer):
             # Prepare context based on recipient's profile
             context = {
                 'language': getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-                'caste': getattr(user_profile, 'caste', '') if user_profile else '',
+                'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                'culture_of_life': getattr(user_profile, 'culture_of_life', '') if user_profile else '',
                 'family_name': obj.person.family.family_name if obj.person.family else '',
                 'native': getattr(user_profile, 'native', '') if user_profile else '',
                 'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
@@ -1693,8 +1703,8 @@ class InvitationListSerializer(serializers.ModelSerializer):
             result = RelationLabelService.get_relation_label(
                 relation_code=obj.original_relation.relation_code,
                 language=context['language'],
-                religion=context['religion'],
-                caste=context['caste'],
+                lifestyle=context['lifestyle'],
+                culture_of_life=context['culture_of_life'],
                 family_name=context['family_name'],
                 native=context['native'],
                 present_city=context['present_city'],

@@ -234,3 +234,28 @@ class UserAdminSerializer(serializers.ModelSerializer):
     def get_profile_image(self, obj):
         request = self.context.get('request')
         return _get_profile_image(obj, request)   # reuse your existing helper
+    
+# serializers.py
+
+class UserChatStatusSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    mobile_number = serializers.CharField()
+    profile_name = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    
+    total_messages = serializers.IntegerField()
+    total_rooms = serializers.IntegerField()
+    last_message_at = serializers.DateTimeField(allow_null=True)
+    last_active_in_chat = serializers.DateTimeField(allow_null=True)  # last message or room update
+    
+    blocked_by_count = serializers.IntegerField()   # number of users who blocked this user
+    has_blocked_count = serializers.IntegerField()  # number of users this user blocked
+    
+    def get_profile_name(self, obj):
+        from .utils import _get_profile_name
+        return _get_profile_name(obj)
+    
+    def get_profile_image(self, obj):
+        from .utils import _get_profile_image
+        return _get_profile_image(obj, self.context.get('request'))
+    

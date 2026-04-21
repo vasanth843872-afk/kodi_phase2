@@ -13,8 +13,8 @@ from datetime import datetime
 from .models import (
     FixedRelation,
     RelationFamily,
-    RelationCaste,
-    RelationLanguageReligion,
+    Relationfamilyname8,
+    RelationLanguagelifestyle,
     RelationProfileOverride
 )
 
@@ -28,8 +28,8 @@ class RelationLabelService:
     Resolution order (STRICT from most to least specific):
     1. RelationProfileOverride (most specific - matches ALL provided fields)
     2. RelationFamily
-    3. RelationCaste
-    4. RelationLanguageReligion
+    3. Relationfamilyname8
+    4. RelationLanguagelifestyle
     5. FixedRelation default (least specific)
     """
     
@@ -41,8 +41,8 @@ class RelationLabelService:
         cls,
         relation_code: str,
         language: str,
-        religion: str = None,
-        caste: str = None,
+        lifestyle: str = None,
+        familyname8: str = None,
         family_name: Optional[str] = None,
         native: Optional[str] = None,
         present_city: Optional[str] = None,
@@ -59,8 +59,8 @@ class RelationLabelService:
         Args:
             relation_code: Fixed relation code (e.g., 'FATHER')
             language: Preferred language (e.g., 'ta', 'en')
-            religion: User's religion
-            caste: User's caste
+            lifestyle: User's lifestyle
+            familyname8: User's familyname8
             family_name: Family name for level 2 override
             native: Native place
             present_city: Present city
@@ -86,8 +86,8 @@ class RelationLabelService:
         
         # Set defaults for None values
         language = language or 'en'
-        religion = religion or ''
-        caste = caste or ''
+        lifestyle = lifestyle or ''
+        familyname8 = familyname8 or ''
         family_name = family_name or ''
         native = native or ''
         present_city = present_city or ''
@@ -97,7 +97,7 @@ class RelationLabelService:
         nationality = nationality or ''
         
         # Generate cache key including all fields
-        cache_key = f"relation_label:v2:{relation_code}:{language}:{religion}:{caste}:{family_name}:{native}:{present_city}:{taluk}:{district}:{state}:{nationality}"
+        cache_key = f"relation_label:v2:{relation_code}:{language}:{lifestyle}:{familyname8}:{family_name}:{native}:{present_city}:{taluk}:{district}:{state}:{nationality}"
         
         if use_cache:
             cached_result = cache.get(cache_key)
@@ -131,8 +131,8 @@ class RelationLabelService:
                 profile_override = cls._find_matching_profile_override(
                     relation=relation,
                     language=language,
-                    religion=religion,
-                    caste=caste,
+                    lifestyle=lifestyle,
+                    familyname8=familyname8,
                     family=family_name,
                     native=native,
                     present_city=present_city,
@@ -150,8 +150,8 @@ class RelationLabelService:
                         'source': 'profile_override',
                         'metadata': {
                             'language': language,
-                            'religion': religion,
-                            'caste': caste,
+                            'lifestyle': lifestyle,
+                            'familyname8': familyname8,
                             'family': family_name,
                             'native': native,
                             'present_city': present_city,
@@ -169,13 +169,13 @@ class RelationLabelService:
                 logger.error(f"Error checking profile override for {relation_code}: {str(e)}")
             
             # LEVEL 2: Family-specific override
-            if family_name and caste and religion:
+            if family_name and familyname8 and lifestyle:
                 try:
                     family_label = RelationFamily.objects.select_related('relation').get(
                         relation=relation,
                         language=language,
-                        religion=religion,
-                        caste=caste,
+                        lifestyle=lifestyle,
+                        familyname8=familyname8,
                         family=family_name
                     )
                     result = {
@@ -186,8 +186,8 @@ class RelationLabelService:
                         'metadata': {
                             'family': family_name,
                             'language': language,
-                            'religion': religion,
-                            'caste': caste
+                            'lifestyle': lifestyle,
+                            'familyname8': familyname8
                         }
                     }
                     if use_cache:
@@ -198,59 +198,59 @@ class RelationLabelService:
                 except Exception as e:
                     logger.error(f"Error fetching family override for {relation_code}: {str(e)}")
             
-            # LEVEL 3: Caste-specific label
-            if caste and religion:
+            # LEVEL 3: familyname8-specific label
+            if familyname8 and lifestyle:
                 try:
-                    caste_label = RelationCaste.objects.select_related('relation').get(
+                    familyname8_label = Relationfamilyname8.objects.select_related('relation').get(
                         relation=relation,
                         language=language,
-                        religion=religion,
-                        caste=caste
+                        lifestyle=lifestyle,
+                        familyname8=familyname8
                     )
                     result = {
-                        'label': caste_label.label,
-                        'level': 'caste',
+                        'label': familyname8_label.label,
+                        'level': 'familyname8',
                         'relation_code': relation_code,
-                        'source': 'caste_override',
+                        'source': 'familyname8_override',
                         'metadata': {
                             'language': language,
-                            'religion': religion,
-                            'caste': caste
+                            'lifestyle': lifestyle,
+                            'familyname8': familyname8
                         }
                     }
                     if use_cache:
                         cache.set(cache_key, result, cls.CACHE_TIMEOUT)
                     return result
-                except RelationCaste.DoesNotExist:
-                    logger.debug(f"No caste override found for {relation_code} with caste {caste}")
+                except Relationfamilyname8.DoesNotExist:
+                    logger.debug(f"No familyname8 override found for {relation_code} with familyname8 {familyname8}")
                 except Exception as e:
-                    logger.error(f"Error fetching caste override for {relation_code}: {str(e)}")
+                    logger.error(f"Error fetching familyname8 override for {relation_code}: {str(e)}")
             
-            # LEVEL 4: Language + Religion label
-            if religion:
+            # LEVEL 4: Language + Lifestyle label
+            if lifestyle:
                 try:
-                    lang_religion_label = RelationLanguageReligion.objects.select_related('relation').get(
+                    lang_lifestyle_label = RelationLanguagelifestyle.objects.select_related('relation').get(
                         relation=relation,
                         language=language,
-                        religion=religion
+                        lifestyle=lifestyle
                     )
                     result = {
-                        'label': lang_religion_label.label,
-                        'level': 'language_religion',
+                        'label': lang_lifestyle_label.label,
+                        'level': 'language_lifestyle',
                         'relation_code': relation_code,
-                        'source': 'religion_override',
+                        'source': 'lifestyle_override',
                         'metadata': {
                             'language': language,
-                            'religion': religion
+                            'lifestyle': lifestyle
                         }
                     }
                     if use_cache:
                         cache.set(cache_key, result, cls.CACHE_TIMEOUT)
                     return result
-                except RelationLanguageReligion.DoesNotExist:
-                    logger.debug(f"No language-religion override found for {relation_code} with religion {religion}")
+                except RelationLanguagelifestyle.DoesNotExist:
+                    logger.debug(f"No language-lifestyle override found for {relation_code} with lifestyle {lifestyle}")
                 except Exception as e:
-                    logger.error(f"Error fetching language-religion override for {relation_code}: {str(e)}")
+                    logger.error(f"Error fetching language-lifestyle override for {relation_code}: {str(e)}")
             
             # LEVEL 5: Fixed relation default
             if language and language.lower() == 'ta':
@@ -297,7 +297,7 @@ class RelationLabelService:
             query = Q(relation=relation)
             
             # Define all possible fields
-            fields = ['language', 'religion', 'caste', 'family', 'native', 
+            fields = ['language', 'lifestyle', 'familyname8', 'family', 'native', 
                     'present_city', 'taluk', 'district', 'state', 'nationality']
             
             # For each field that has a value in kwargs, build the query
@@ -329,8 +329,8 @@ class RelationLabelService:
             for o in overrides:
                 fields_present = []
                 if o.language: fields_present.append('language')
-                if o.religion: fields_present.append('religion')
-                if o.caste: fields_present.append('caste')
+                if o.lifestyle: fields_present.append('lifestyle')
+                if o.familyname8: fields_present.append('familyname8')
                 if o.family: fields_present.append('family')
                 if o.native: fields_present.append('native')
                 if o.present_city: fields_present.append('present_city')
@@ -372,8 +372,8 @@ class RelationLabelService:
             return cls.get_relation_label(
                 relation_code=relation_code,
                 language=language,
-                religion=getattr(profile, 'religion', None),
-                caste=getattr(profile, 'caste', None),
+                lifestyle=getattr(profile, 'lifestyle', None),
+                familyname8=getattr(profile, 'familyname8', None),
                 family_name=getattr(profile, 'familyname1', None),
                 native=getattr(profile, 'native', None),
                 present_city=getattr(profile, 'present_city', None),
@@ -391,8 +391,8 @@ class RelationLabelService:
     def get_all_labels_for_context(
         cls,
         language: str,
-        religion: str = None,
-        caste: str = None,
+        lifestyle: str = None,
+        familyname8: str = None,
         family_name: Optional[str] = None,
         native: Optional[str] = None,
         present_city: Optional[str] = None,
@@ -406,7 +406,7 @@ class RelationLabelService:
         Get all relation labels for a given context.
         Useful for caching or pre-loading.
         """
-        cache_key = f"all_labels:v2:{language}:{religion}:{caste}:{family_name}:{native}:{present_city}:{taluk}:{district}:{state}:{nationality}"
+        cache_key = f"all_labels:v2:{language}:{lifestyle}:{familyname8}:{family_name}:{native}:{present_city}:{taluk}:{district}:{state}:{nationality}"
         
         if use_cache:
             cached_labels = cache.get(cache_key)
@@ -435,8 +435,8 @@ class RelationLabelService:
                     result = cls.get_relation_label(
                         relation_code=relation.relation_code,
                         language=language,
-                        religion=religion,
-                        caste=caste,
+                        lifestyle=lifestyle,
+                        familyname8=familyname8,
                         family_name=family_name,
                         native=native,
                         present_city=present_city,
@@ -696,89 +696,89 @@ class ConflictDetectionService:
 
 # 1️⃣ Relation composition table (ENHANCED with more combinations)
 RELATION_COMPOSITION = {
-    # Grandparents
-    ("FATHER", "FATHER"): "GRANDFATHER",
-    ("FATHER", "MOTHER"): "GRANDMOTHER",
-    ("MOTHER", "FATHER"): "GRANDFATHER",
-    ("MOTHER", "MOTHER"): "GRANDMOTHER",
+    # # Grandparents
+    # ("FATHER", "FATHER"): "GRANDFATHER",
+    # ("FATHER", "MOTHER"): "GRANDMOTHER",
+    # ("MOTHER", "FATHER"): "GRANDFATHER",
+    # ("MOTHER", "MOTHER"): "GRANDMOTHER",
     
-    # Parent's siblings
-    ("FATHER", "BROTHER"): "FATHER_BROTHER",
-    ("FATHER", "ELDER_BROTHER"): "FATHER_ELDER_BROTHER",
-    ("FATHER", "YOUNGER_BROTHER"): "FATHER_YOUNGER_BROTHER",
-    ("FATHER", "SISTER"): "FATHER_SISTER",
+    # # Parent's siblings
+    # ("FATHER", "BROTHER"): "FATHER_BROTHER",
+    # ("FATHER", "ELDER_BROTHER"): "FATHER_ELDER_BROTHER",
+    # ("FATHER", "YOUNGER_BROTHER"): "FATHER_YOUNGER_BROTHER",
+    # ("FATHER", "SISTER"): "FATHER_SISTER",
     
-    ("MOTHER", "BROTHER"): "MOTHER_BROTHER",
-    ("MOTHER", "SISTER"): "MOTHER_SISTER",
-    ("MOTHER", "ELDER_SISTER"): "MOTHER_ELDER_SISTER",
-    ("MOTHER", "YOUNGER_SISTER"): "MOTHER_YOUNGER_SISTER",
+    # ("MOTHER", "BROTHER"): "MOTHER_BROTHER",
+    # ("MOTHER", "SISTER"): "MOTHER_SISTER",
+    # ("MOTHER", "ELDER_SISTER"): "MOTHER_ELDER_SISTER",
+    # ("MOTHER", "YOUNGER_SISTER"): "MOTHER_YOUNGER_SISTER",
     
-    # Parent's spouses (step-parents)
-    ("FATHER", "WIFE"): "STEP_MOTHER",
-    ("MOTHER", "HUSBAND"): "STEP_FATHER",
+    # # Parent's spouses (step-parents)
+    # ("FATHER", "WIFE"): "STEP_MOTHER",
+    # ("MOTHER", "HUSBAND"): "STEP_FATHER",
     
-    # Sibling's spouses
-    ("ELDER_BROTHER", "WIFE"): "SISTER_IN_LAW",
-    ("YOUNGER_BROTHER", "WIFE"): "SISTER_IN_LAW",
-    ("ELDER_SISTER", "HUSBAND"): "BROTHER_IN_LAW",
-    ("YOUNGER_SISTER", "HUSBAND"): "BROTHER_IN_LAW",
+    # # Sibling's spouses
+    # ("ELDER_BROTHER", "WIFE"): "SISTER_IN_LAW",
+    # ("YOUNGER_BROTHER", "WIFE"): "SISTER_IN_LAW",
+    # ("ELDER_SISTER", "HUSBAND"): "BROTHER_IN_LAW",
+    # ("YOUNGER_SISTER", "HUSBAND"): "BROTHER_IN_LAW",
     
-    # Children's spouses
-    ("SON", "WIFE"): "DAUGHTER_IN_LAW",
-    ("DAUGHTER", "HUSBAND"): "SON_IN_LAW",
+    # # Children's spouses
+    # ("SON", "WIFE"): "DAUGHTER_IN_LAW",
+    # ("DAUGHTER", "HUSBAND"): "SON_IN_LAW",
     
-    # Spouse's relatives
-    ("HUSBAND", "FATHER"): "FATHER_IN_LAW",
-    ("HUSBAND", "MOTHER"): "MOTHER_IN_LAW",
-    ("HUSBAND", "BROTHER"): "BROTHER_IN_LAW",
-    ("HUSBAND", "SISTER"): "SISTER_IN_LAW",
+    # # Spouse's relatives
+    # ("HUSBAND", "FATHER"): "FATHER_IN_LAW",
+    # ("HUSBAND", "MOTHER"): "MOTHER_IN_LAW",
+    # ("HUSBAND", "BROTHER"): "BROTHER_IN_LAW",
+    # ("HUSBAND", "SISTER"): "SISTER_IN_LAW",
     
-    ("WIFE", "FATHER"): "FATHER_IN_LAW",
-    ("WIFE", "MOTHER"): "MOTHER_IN_LAW",
-    ("WIFE", "BROTHER"): "BROTHER_IN_LAW",
-    ("WIFE", "SISTER"): "SISTER_IN_LAW",
+    # ("WIFE", "FATHER"): "FATHER_IN_LAW",
+    # ("WIFE", "MOTHER"): "MOTHER_IN_LAW",
+    # ("WIFE", "BROTHER"): "BROTHER_IN_LAW",
+    # ("WIFE", "SISTER"): "SISTER_IN_LAW",
     
-    # Nephews/Nieces
-    ("ELDER_BROTHER", "SON"): "NEPHEW",
-    ("ELDER_BROTHER", "DAUGHTER"): "NIECE",
-    ("YOUNGER_BROTHER", "SON"): "NEPHEW",
-    ("YOUNGER_BROTHER", "DAUGHTER"): "NIECE",
-    ("ELDER_SISTER", "SON"): "NEPHEW",
-    ("ELDER_SISTER", "DAUGHTER"): "NIECE",
-    ("YOUNGER_SISTER", "SON"): "NEPHEW",
-    ("YOUNGER_SISTER", "DAUGHTER"): "NIECE",
+    # # Nephews/Nieces
+    # ("ELDER_BROTHER", "SON"): "NEPHEW",
+    # ("ELDER_BROTHER", "DAUGHTER"): "NIECE",
+    # ("YOUNGER_BROTHER", "SON"): "NEPHEW",
+    # ("YOUNGER_BROTHER", "DAUGHTER"): "NIECE",
+    # ("ELDER_SISTER", "SON"): "NEPHEW",
+    # ("ELDER_SISTER", "DAUGHTER"): "NIECE",
+    # ("YOUNGER_SISTER", "SON"): "NEPHEW",
+    # ("YOUNGER_SISTER", "DAUGHTER"): "NIECE",
     
-    # Grandchildren
-    ("SON", "SON"): "GRANDSON",
-    ("SON", "DAUGHTER"): "GRANDDAUGHTER",
-    ("DAUGHTER", "SON"): "GRANDSON",
-    ("DAUGHTER", "DAUGHTER"): "GRANDDAUGHTER",
+    # # Grandchildren
+    # ("SON", "SON"): "GRANDSON",
+    # ("SON", "DAUGHTER"): "GRANDDAUGHTER",
+    # ("DAUGHTER", "SON"): "GRANDSON",
+    # ("DAUGHTER", "DAUGHTER"): "GRANDDAUGHTER",
     
-    # Cousins (Uncle/Aunt's children)
-    ("FATHER_BROTHER", "SON"): "COUSIN_MALE",
-    ("FATHER_BROTHER", "DAUGHTER"): "COUSIN_FEMALE",
-    ("FATHER_SISTER", "SON"): "COUSIN_MALE",
-    ("FATHER_SISTER", "DAUGHTER"): "COUSIN_FEMALE",
-    ("MOTHER_BROTHER", "SON"): "COUSIN_MALE",
-    ("MOTHER_BROTHER", "DAUGHTER"): "COUSIN_FEMALE",
-    ("MOTHER_SISTER", "SON"): "COUSIN_MALE",
-    ("MOTHER_SISTER", "DAUGHTER"): "COUSIN_FEMALE",
+    # # Cousins (Uncle/Aunt's children)
+    # ("FATHER_BROTHER", "SON"): "COUSIN_MALE",
+    # ("FATHER_BROTHER", "DAUGHTER"): "COUSIN_FEMALE",
+    # ("FATHER_SISTER", "SON"): "COUSIN_MALE",
+    # ("FATHER_SISTER", "DAUGHTER"): "COUSIN_FEMALE",
+    # ("MOTHER_BROTHER", "SON"): "COUSIN_MALE",
+    # ("MOTHER_BROTHER", "DAUGHTER"): "COUSIN_FEMALE",
+    # ("MOTHER_SISTER", "SON"): "COUSIN_MALE",
+    # ("MOTHER_SISTER", "DAUGHTER"): "COUSIN_FEMALE",
     
-    # Step-siblings
-    ("STEP_FATHER", "SON"): "STEP_BROTHER",
-    ("STEP_FATHER", "DAUGHTER"): "STEP_SISTER",
-    ("STEP_MOTHER", "SON"): "STEP_BROTHER",
-    ("STEP_MOTHER", "DAUGHTER"): "STEP_SISTER",
+    # # Step-siblings
+    # ("STEP_FATHER", "SON"): "STEP_BROTHER",
+    # ("STEP_FATHER", "DAUGHTER"): "STEP_SISTER",
+    # ("STEP_MOTHER", "SON"): "STEP_BROTHER",
+    # ("STEP_MOTHER", "DAUGHTER"): "STEP_SISTER",
     
-    # Multi-level compositions
-    ("GRANDFATHER", "SON"): "UNCLE",
-    ("GRANDFATHER", "DAUGHTER"): "AUNT",
-    ("GRANDMOTHER", "SON"): "UNCLE",
-    ("GRANDMOTHER", "DAUGHTER"): "AUNT",
+    # # Multi-level compositions
+    # ("GRANDFATHER", "SON"): "UNCLE",
+    # ("GRANDFATHER", "DAUGHTER"): "AUNT",
+    # ("GRANDMOTHER", "SON"): "UNCLE",
+    # ("GRANDMOTHER", "DAUGHTER"): "AUNT",
     
     
     
-     ('ELDER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
+    #  ('ELDER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
 }
 
 
@@ -1099,6 +1099,7 @@ except ImportError:
 
 # services/relation_automation.py
 from typing import List, Dict, Optional, Tuple, Any
+import re
 from django.db.models import Q
 from django.core.cache import cache
 from datetime import datetime
@@ -1115,226 +1116,191 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# services/relation_automation.py
+
+from typing import List, Dict, Optional, Tuple, Any
+import re
+import logging
+from django.db.models import Q
+from django.core.cache import cache
+from .models import FixedRelation
+from .services import RelationLabelService, AshramamLabelService
+
+logger = logging.getLogger(__name__)
+
 
 class RelationAutomationEngine:
-    """Main engine for automated relation calculation from click paths with full profile override support."""
-    
-    # Enhanced composition rules - COMPLETE SET
-    RELATION_COMPOSITION_RULES = {
-        
-        # Sibling's spouses (both directions)
-        ('BROTHER', 'WIFE'): 'SISTER_IN_LAW',
-        ('ELDER_BROTHER', 'WIFE'): 'SISTER_IN_LAW',
-        ('YOUNGER_BROTHER', 'WIFE'): 'SISTER_IN_LAW',
-        
-        # Sister's husband
-        ('SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
-        ('ELDER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
-        ('YOUNGER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
+    """
+    Main engine for automated relation calculation using default_english as composition tokens.
+    """
 
-        
-      
-        ('YOUNGER_SISTER', 'WIFE'): 'BROTHER_IN_LAW',
-        # Grandparents (Level 2)
-        ('FATHER', 'FATHER'): 'GRANDFATHER',
-        ('FATHER', 'MOTHER'): 'GRANDMOTHER',
-        ('MOTHER', 'FATHER'): 'GRANDFATHER',
-        ('MOTHER', 'MOTHER'): 'GRANDMOTHER',
-        
-        # Parents' siblings (Uncles/Aunts) - Level 2
-        ('FATHER', 'BROTHER'): 'FATHER_BROTHER',
-        ('FATHER', 'SISTER'): 'FATHER_SISTER',
-        ('FATHER', 'ELDER_BROTHER'): 'FATHER_ELDER_BROTHER',
-        ('FATHER', 'YOUNGER_BROTHER'): 'FATHER_YOUNGER_BROTHER',
-        ('FATHER', 'ELDER_SISTER'): 'FATHER_ELDER_SISTER',
-        ('FATHER', 'YOUNGER_SISTER'): 'FATHER_YOUNGER_SISTER',
-        
-        ('MOTHER', 'BROTHER'): 'MOTHER_BROTHER',
-        ('MOTHER', 'SISTER'): 'MOTHER_SISTER',
-        ('MOTHER', 'ELDER_SISTER'): 'MOTHER_ELDER_SISTER',
-        ('MOTHER', 'YOUNGER_SISTER'): 'MOTHER_YOUNGER_SISTER',
-        
-        # Parents' spouses (Step-parents) - Level 2
-        ('FATHER', 'WIFE'): 'MOTHER',
-        ('MOTHER', 'HUSBAND'): 'FATHER',
-        
-        # Siblings - direct
-        ('PARENT', 'SON'): 'BROTHER',
-        ('PARENT', 'DAUGHTER'): 'SISTER',
-        
-        # Siblings' spouses (In-laws) - Level 2
-        ('BROTHER', 'WIFE'): 'SISTER_IN_LAW',
-        ('ELDER_BROTHER', 'WIFE'): 'SISTER_IN_LAW',
-        ('YOUNGER_BROTHER', 'WIFE'): 'SISTER_IN_LAW',
-        
-        ('SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
-        ('ELDER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
-        ('YOUNGER_SISTER', 'HUSBAND'): 'BROTHER_IN_LAW',
-        
-        # Children's spouses - Level 2
-        ('SON', 'WIFE'): 'DAUGHTER_IN_LAW',
-        ('DAUGHTER', 'HUSBAND'): 'SON_IN_LAW',
-        
-        # Spouses' relatives - Level 2
-        ('HUSBAND', 'FATHER'): 'FATHER_IN_LAW',
-        ('HUSBAND', 'MOTHER'): 'MOTHER_IN_LAW',
-        ('HUSBAND', 'BROTHER'): 'BROTHER_IN_LAW',
-        ('HUSBAND', 'SISTER'): 'SISTER_IN_LAW',
-        
-        ('WIFE', 'FATHER'): 'FATHER_IN_LAW',
-        ('WIFE', 'MOTHER'): 'MOTHER_IN_LAW',
-        ('WIFE', 'BROTHER'): 'BROTHER_IN_LAW',
-        ('WIFE', 'SISTER'): 'SISTER_IN_LAW',
-        
-        # Nephews/Nieces - Level 2
-        ('BROTHER', 'SON'): 'NEPHEW',
-        ('BROTHER', 'DAUGHTER'): 'NIECE',
-        ('ELDER_BROTHER', 'SON'): 'NEPHEW',
-        ('ELDER_BROTHER', 'DAUGHTER'): 'NIECE',
-        ('YOUNGER_BROTHER', 'SON'): 'NEPHEW',
-        ('YOUNGER_BROTHER', 'DAUGHTER'): 'NIECE',
-        
-        ('SISTER', 'SON'): 'NEPHEW',
-        ('SISTER', 'DAUGHTER'): 'NIECE',
-        ('ELDER_SISTER', 'SON'): 'NEPHEW',
-        ('ELDER_SISTER', 'DAUGHTER'): 'NIECE',
-        ('YOUNGER_SISTER', 'SON'): 'NEPHEW',
-        ('YOUNGER_SISTER', 'DAUGHTER'): 'NIECE',
-        
-        # Grandchildren - Level 2
-        ('SON', 'SON'): 'GRANDSON',
-        ('SON', 'DAUGHTER'): 'GRANDDAUGHTER',
-        ('DAUGHTER', 'SON'): 'GRANDSON',
-        ('DAUGHTER', 'DAUGHTER'): 'GRANDDAUGHTER',
-        
-        # Cousins (Level 3: Uncle/Aunt → Child)
-        ('FATHER_BROTHER', 'SON'): 'COUSIN_MALE',
-        ('FATHER_BROTHER', 'DAUGHTER'): 'COUSIN_FEMALE',
-        ('FATHER_SISTER', 'SON'): 'COUSIN_MALE',
-        ('FATHER_SISTER', 'DAUGHTER'): 'COUSIN_FEMALE',
-        ('MOTHER_BROTHER', 'SON'): 'COUSIN_MALE',
-        ('MOTHER_BROTHER', 'DAUGHTER'): 'COUSIN_FEMALE',
-        ('MOTHER_SISTER', 'SON'): 'COUSIN_MALE',
-        ('MOTHER_SISTER', 'DAUGHTER'): 'COUSIN_FEMALE',
-        
-        # Step-siblings (Level 3: Step-parent → Child)
-        ('STEP_MOTHER', 'SON'): 'STEP_BROTHER',
-        ('STEP_MOTHER', 'DAUGHTER'): 'STEP_SISTER',
-        ('STEP_FATHER', 'SON'): 'STEP_BROTHER',
-        ('STEP_FATHER', 'DAUGHTER'): 'STEP_SISTER',
-        
-        # Multi-level compositions (Level 3+)
-        ('GRANDFATHER', 'SON'): 'UNCLE',
-        ('GRANDFATHER', 'DAUGHTER'): 'AUNT',
-        ('GRANDMOTHER', 'SON'): 'UNCLE',
+    # Hardcoded composition rules as fallback (kept for backward compatibility)
+    LEGACY_COMPOSITION_RULES = {
+        # ('FATHER', 'FATHER'): 'GRANDFATHER',
+        # ('MOTHER', 'FATHER'): 'GRANDFATHER',
+        # ... (keep your existing rules)
         ('GRANDMOTHER', 'DAUGHTER'): 'AUNT',
     }
-    
-    # Tamil-specific mapping with your codes
+
+    # Tamil-specific mapping
     TAMIL_REFINEMENT_MAP = {
-        # Paternal side
         'FATHER_BROTHER_ELDER': 'FATHER_ELDER_BROTHER',
         'FATHER_BROTHER_YOUNGER': 'FATHER_YOUNGER_BROTHER',
         'FATHER_SISTER_ELDER': 'FATHER_ELDER_SISTER',
         'FATHER_SISTER_YOUNGER': 'FATHER_YOUNGER_SISTER',
-        
-        # Maternal side
         'MOTHER_BROTHER': 'MOTHER_BROTHER',
         'MOTHER_SISTER_ELDER': 'MOTHER_ELDER_SISTER',
         'MOTHER_SISTER_YOUNGER': 'MOTHER_YOUNGER_SISTER',
-        
-        # Grandparents
         'GRANDFATHER': 'GRANDFATHER',
         'GRANDMOTHER': 'GRANDMOTHER',
-        
-        # Siblings
         'BROTHER': 'BROTHER',
         'SISTER': 'SISTER',
         'BROTHER_ELDER': 'ELDER_BROTHER',
         'BROTHER_YOUNGER': 'YOUNGER_BROTHER',
         'SISTER_ELDER': 'ELDER_SISTER',
         'SISTER_YOUNGER': 'YOUNGER_SISTER',
-        
-        # Step-parents
         'STEP_MOTHER': 'STEP_MOTHER',
         'STEP_FATHER': 'STEP_FATHER',
-        
-        # Step-siblings
         'STEP_BROTHER': 'STEP_BROTHER',
         'STEP_SISTER': 'STEP_SISTER',
-        
-        # Spouses
         'HUSBAND': 'HUSBAND',
         'WIFE': 'WIFE',
-        
-        # In-laws
         'BROTHER_IN_LAW': 'BROTHER_IN_LAW',
         'SISTER_IN_LAW': 'SISTER_IN_LAW',
         'FATHER_IN_LAW': 'FATHER_IN_LAW',
         'MOTHER_IN_LAW': 'MOTHER_IN_LAW',
-        
-        # Children's spouses
         'SON_IN_LAW': 'SON_IN_LAW',
         'DAUGHTER_IN_LAW': 'DAUGHTER_IN_LAW',
-        
-        # Nephews/Nieces
         'NEPHEW': 'NEPHEW',
         'NIECE': 'NIECE',
-        
-        # Grandchildren
         'GRANDSON': 'GRANDSON',
         'GRANDDAUGHTER': 'GRANDDAUGHTER',
-        
-        # Cousins
         'COUSIN_MALE': 'COUSIN_MALE',
         'COUSIN_FEMALE': 'COUSIN_FEMALE',
-        
-        # Generic
         'UNCLE': 'UNCLE',
         'AUNT': 'AUNT',
     }
-    
-    # Extended normalization mapping
+
+    # Alias mapping for user inputs – NOW INCLUDES "elder sister" -> "ELDER_SISTER"
     RELATION_ALIASES = {
-        # Step relationships
-        'stepfather': 'STEP_FATHER',
-        'stepdad': 'STEP_FATHER',
-        'stepmother': 'STEP_MOTHER',
-        'stepmom': 'STEP_MOTHER',
-        'stepmum': 'STEP_MOTHER',
-        
-        # Step siblings
-        'stepbrother': 'STEP_BROTHER',
-        'stepbro': 'STEP_BROTHER',
+        'stepfather': 'STEP_FATHER', 'stepdad': 'STEP_FATHER',
+        'stepmother': 'STEP_MOTHER', 'stepmom': 'STEP_MOTHER', 'stepmum': 'STEP_MOTHER',
+        'stepbrother': 'STEP_BROTHER', 'stepbro': 'STEP_BROTHER',
         'stepsister': 'STEP_SISTER',
-        'stepsister': 'STEP_SISTER',
-        
-        # In-laws
-        'fatherinlaw': 'FATHER_IN_LAW',
-        'father-in-law': 'FATHER_IN_LAW',
-        'motherinlaw': 'MOTHER_IN_LAW',
-        'mother-in-law': 'MOTHER_IN_LAW',
-        'brotherinlaw': 'BROTHER_IN_LAW',
-        'brother-in-law': 'BROTHER_IN_LAW',
-        'sisterinlaw': 'SISTER_IN_LAW',
-        'sister-in-law': 'SISTER_IN_LAW',
-        
-        # Cousins
-        'cousin': 'COUSIN_MALE',
-        'cousinbrother': 'COUSIN_MALE',
-        'cousin-sister': 'COUSIN_FEMALE',
-        
-        # Tamil step relationships
-        'மாற்றாந் தந்தை': 'STEP_FATHER',
-        'மாற்றாந் தாய்': 'STEP_MOTHER',
-        'மாற்றாந் சகோதரன்': 'STEP_BROTHER',
-        'மாற்றாந் சகோதரி': 'STEP_SISTER',
+        'fatherinlaw': 'FATHER_IN_LAW', 'father-in-law': 'FATHER_IN_LAW',
+        'motherinlaw': 'MOTHER_IN_LAW', 'mother-in-law': 'MOTHER_IN_LAW',
+        'brotherinlaw': 'BROTHER_IN_LAW', 'brother-in-law': 'BROTHER_IN_LAW',
+        'sisterinlaw': 'SISTER_IN_LAW', 'sister-in-law': 'SISTER_IN_LAW',
+        'cousin': 'COUSIN_MALE', 'cousinbrother': 'COUSIN_MALE', 'cousin-sister': 'COUSIN_FEMALE',
+        'மாற்றாந் தந்தை': 'STEP_FATHER', 'மாற்றாந் தாய்': 'STEP_MOTHER',
+        'மாற்றாந் சகோதரன்': 'STEP_BROTHER', 'மாற்றாந் சகோதரி': 'STEP_SISTER',
+        # New aliases for "elder sister"
+        'eldersister': 'ELDER_SISTER',
+        'elder sister': 'ELDER_SISTER',
     }
-    
-    # Cache for normalized inputs
+
+    # Caches
     _normalization_cache = {}
-    _composition_cache = {}
-    
+    _token_to_relation_map = None
+    _token_cache = {}
+
+    @classmethod
+    def _get_composition_token(cls, relation_code: str) -> str:
+        """
+        Token used for the next composition step.
+        Uses composition_token if present; else falls back to default_english.
+        """
+        cache_key = f"comp_token:{relation_code}"
+        if cache_key in cls._token_cache:
+            return cls._token_cache[cache_key]
+
+        try:
+            fixed_rel = FixedRelation.objects.filter(relation_code=relation_code, is_active=True).first()
+            if not fixed_rel:
+                token = relation_code.lower().replace(' ', '_')
+            else:
+                source = fixed_rel.composition_token or fixed_rel.default_english
+                if source:
+                    token = source.lower().replace(' ', '_')
+                    token = re.sub(r'[^a-z0-9_]', '', token)
+                else:
+                    token = relation_code.lower().replace(' ', '_')
+            cls._token_cache[cache_key] = token
+            return token
+        except Exception as e:
+            logger.error(f"Error getting composition token for {relation_code}: {e}")
+            token = relation_code.lower().replace(' ', '_')
+            cls._token_cache[cache_key] = token
+            return token
+
+    @classmethod
+    def _build_token_map(cls):
+        """Build mapping from match token to FixedRelation instance."""
+        cls._token_to_relation_map = {}
+        for rel in FixedRelation.objects.filter(is_active=True):
+            match_token = cls._get_match_token(rel.relation_code)
+            if match_token not in cls._token_to_relation_map:
+                cls._token_to_relation_map[match_token] = rel
+            else:
+                logger.warning(f"Duplicate match token '{match_token}' for {rel.relation_code}")
+
+    @classmethod
+    def _find_fixed_relation_by_token(cls, token: str) -> Optional[Any]:
+        """Find FixedRelation whose processed default_english matches token."""
+        if cls._token_to_relation_map is None:
+            cls._build_token_map()
+        return cls._token_to_relation_map.get(token)
+
+    @classmethod
+    def _normalize_relation_input(cls, input_str: str) -> Tuple[str, str]:
+        """
+        Convert user input to (relation_code, composition_token).
+        """
+        logger.debug(f"Normalizing: {input_str}")
+
+        # Step 1: check aliases (stripped of spaces and punctuation)
+        normalized_input = input_str.lower().replace(' ', '').replace('-', '').replace('_', '')
+        if normalized_input in cls.RELATION_ALIASES:
+            code = cls.RELATION_ALIASES[normalized_input]
+            token = cls._get_composition_token(code)
+            logger.debug(f"Alias match: {code} -> {token}")
+            return (code, token)
+
+        # Step 2: try exact relation code (with or without underscores)
+        code_candidate = input_str.upper()
+        code_candidate_underscore = input_str.upper().replace(' ', '_')
+        fixed_rel = FixedRelation.objects.filter(
+            Q(relation_code=code_candidate) | Q(relation_code=code_candidate_underscore),
+            is_active=True
+        ).first()
+        if fixed_rel:
+            token = cls._get_composition_token(fixed_rel.relation_code)
+            logger.debug(f"Exact code match: {fixed_rel.relation_code} -> {token}")
+            return (fixed_rel.relation_code, token)
+
+        # Step 3: try by token (processed default_english)
+        # Try both with underscores and without spaces entirely
+        processed_input_underscore = input_str.lower().replace(' ', '_')
+        processed_input_underscore = re.sub(r'[^a-z0-9_]', '', processed_input_underscore)
+        processed_input_nospace = input_str.lower().replace(' ', '')
+        processed_input_nospace = re.sub(r'[^a-z0-9_]', '', processed_input_nospace)
+
+        fixed_rel = cls._find_fixed_relation_by_token(processed_input_underscore)
+        if not fixed_rel:
+            fixed_rel = cls._find_fixed_relation_by_token(processed_input_nospace)
+
+        if fixed_rel:
+            code = fixed_rel.relation_code
+            token = cls._get_composition_token(code)
+            logger.debug(f"Token match: {processed_input_underscore} -> code {code} -> token {token}")
+            return (code, token)
+
+        # Step 4: Fallback – use the input directly as a code/token
+        code = input_str.upper().replace(' ', '_')
+        token = code.lower()
+        logger.debug(f"Fallback: {code} -> {token}")
+        return (code, token)
+
     @classmethod
     def calculate_relation_from_path(
         cls,
@@ -1344,18 +1310,8 @@ class RelationAutomationEngine:
         context: Optional[Dict] = None
     ) -> Dict:
         """
-        Calculate relation from click path with multi-level support and profile overrides.
-        
-        Args:
-            from_person: Starting person (can be None for testing)
-            path_elements: List of relation steps
-            to_person: Target person (optional)
-            context: Additional context like language, religion, caste, native, etc.
-        
-        Returns:
-            Dictionary with relation details including localized label with profile overrides
+        Calculate relation from click path using token-based composition.
         """
-        # Initialize result structure
         result = {
             'base_relation': None,
             'refined_relation': None,
@@ -1367,90 +1323,86 @@ class RelationAutomationEngine:
             'errors': [],
             'warnings': []
         }
-        
-        # Input validation
+
         if not path_elements:
-            logger.warning("Empty path elements provided")
+            logger.warning("Empty path elements")
             result['base_relation'] = 'SELF'
             result['refined_relation'] = 'SELF'
             result['label'] = 'Self'
             result['warnings'].append('Empty path, defaulting to SELF')
             return result
-        
+
         context = context or {}
-        
+
         try:
-            # Step 1: Normalize and compose with multi-level support
+            # 1. Normalize each path element to (code, token)
+            normalized_pairs = []
+            for elem in path_elements:
+                code, token = cls._normalize_relation_input(elem)
+                normalized_pairs.append((code, token))
+            result['normalized_path'] = [f"{c}({t})" for c, t in normalized_pairs]
+
+            # 2. Compose using tokens
             current_code = None
-            normalized_path = []
+            current_token = None
             composition_history = []
-            
-            for i, element in enumerate(path_elements):
-                try:
-                    element_code = cls._normalize_relation_input(element)
-                    normalized_path.append(element_code)
-                    
-                    if current_code is None:
-                        current_code = element_code
-                        continue
-                    
-                    # Check for direct composition rule
-                    composition_key = (current_code, element_code)
-                    
-                    if composition_key in cls.RELATION_COMPOSITION_RULES:
-                        new_code = cls.RELATION_COMPOSITION_RULES[composition_key]
-                        composition_history.append(f"{current_code}+{element_code}={new_code}")
+
+            for i, (code, token) in enumerate(normalized_pairs):
+                if current_code is None:
+                    current_code = code
+                    current_token = token
+                    continue
+
+                composed_token = f"{current_token}_{token}"
+                composed_rel = cls._find_fixed_relation_by_token(composed_token)
+
+                if composed_rel:
+                    new_code = composed_rel.relation_code
+                    new_token = cls._get_composition_token(new_code)
+                    composition_history.append(f"{current_token}+{token} → {new_token} (via {new_code})")
+                    current_code = new_code
+                    current_token = new_token
+                else:
+                    # Fallback to legacy hardcoded rules
+                    legacy_key = (current_code, code)
+                    if legacy_key in cls.LEGACY_COMPOSITION_RULES:
+                        new_code = cls.LEGACY_COMPOSITION_RULES[legacy_key]
+                        new_token = cls._get_composition_token(new_code)
+                        composition_history.append(f"{current_code}+{code} → {new_code} (legacy fallback)")
                         current_code = new_code
+                        current_token = new_token
                     else:
-                        # Check for generic parent substitution
-                        if element_code in ['SON', 'DAUGHTER']:
-                            if current_code.startswith(('FATHER_', 'MOTHER_', 'UNCLE', 'AUNT')):
-                                if element_code == 'SON':
-                                    current_code = 'COUSIN_MALE'
-                                else:
-                                    current_code = 'COUSIN_FEMALE'
-                                composition_history.append(f"{composition_key[0]}+{element_code}=COUSIN")
-                            else:
-                                # Generic composition
-                                current_code = f"{current_code}_{element_code}"
-                                composition_history.append(f"{composition_key[0]}+{element_code}=COMPOSED")
-                        else:
-                            # Generic fallback composition
-                            current_code = f"{current_code}_{element_code}"
-                            composition_history.append(f"{composition_key[0]}+{element_code}=COMPOSED")
-                            
-                except Exception as e:
-                    error_msg = f"Error processing path element {i} ('{element}'): {str(e)}"
-                    logger.error(error_msg)
-                    result['errors'].append(error_msg)
-                    # Continue with next element using current code
-            
+                        logger.debug(f"Token fallback triggered: {composed_token}")
+                        # Use the composed token as the new code
+                        new_code = composed_token.upper()
+                        new_token = composed_token
+                        composition_history.append(f"{current_code}+{code} → {new_code} (token fallback)")
+                        current_code = new_code
+                        current_token = new_token
+
             result['base_relation'] = current_code
-            result['normalized_path'] = normalized_path
             result['composition_history'] = composition_history
-            
-            # Step 2: Apply Tamil refinements
+
+            # 3. Apply refinements
             try:
                 refined_code = cls._apply_refinements(
                     base_code=current_code,
-                    path_elements=normalized_path,
+                    path_elements=[c for c, _ in normalized_pairs],
                     from_person=from_person,
                     to_person=to_person,
                     context=context
                 )
                 result['refined_relation'] = refined_code
             except Exception as e:
-                error_msg = f"Error applying refinements: {str(e)}"
-                logger.error(error_msg)
-                result['errors'].append(error_msg)
+                logger.error(f"Error applying refinements: {e}")
+                result['errors'].append(f"Refinement error: {e}")
                 result['refined_relation'] = current_code
-            
-            # Step 3: Get localized label using the enhanced service with FULL profile context
+
+            # 4. Localize label
             try:
-                # Extract ALL profile fields from context (with defaults)
                 language = context.get('language', 'ta')
-                religion = context.get('religion', '')
-                caste = context.get('caste', '')
+                lifestyle = context.get('lifestyle', '')
+                familyname8 = context.get('familyname8', '')
                 family_name = context.get('family_name', '')
                 native = context.get('native', '')
                 present_city = context.get('present_city', '')
@@ -1458,16 +1410,12 @@ class RelationAutomationEngine:
                 district = context.get('district', '')
                 state = context.get('state', '')
                 nationality = context.get('nationality', '')
-                
-                # Log the context being used for debugging
-                logger.debug(f"Getting label for {result['refined_relation']} with context: lang={language}, religion={religion}, caste={caste}, family={family_name}, native={native}")
-                
-                # Get label from RelationLabelService (which includes profile overrides)
+
                 label_info = RelationLabelService.get_relation_label(
                     relation_code=result['refined_relation'],
                     language=language,
-                    religion=religion,
-                    caste=caste,
+                    lifestyle=lifestyle,
+                    familyname8=familyname8,
                     family_name=family_name,
                     native=native,
                     present_city=present_city,
@@ -1477,134 +1425,26 @@ class RelationAutomationEngine:
                     nationality=nationality,
                     use_cache=True
                 )
-                
                 result['label'] = label_info['label']
                 result['localization_level'] = label_info.get('level', 'default')
                 result['label_source'] = label_info.get('source', 'unknown')
                 result['label_metadata'] = label_info.get('metadata', {})
-                
-                logger.debug(f"Resolved label: {result['label']} at level {result['localization_level']}")
-                
             except Exception as e:
-                error_msg = f"Error getting localized label: {str(e)}"
-                logger.error(error_msg, exc_info=True)
-                result['errors'].append(error_msg)
-                # Fallback to AshramamLabelService or raw code
-                try:
-                    result['label'] = AshramamLabelService.get_label(
-                        result['refined_relation'], 
-                        language
-                    ) or result['refined_relation']
-                except:
-                    result['label'] = result['refined_relation']
-            
+                logger.error(f"Error getting label: {e}")
+                result['errors'].append(f"Label error: {e}")
+                fallback_label = AshramamLabelService.get_label(result['refined_relation'], language)
+                result['label'] = fallback_label or result['refined_relation']
+
             return result
-            
+
         except Exception as e:
-            error_msg = f"Unexpected error in calculate_relation_from_path: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            result['errors'].append(error_msg)
+            logger.error(f"Unexpected error in calculate_relation_from_path: {e}", exc_info=True)
+            result['errors'].append(f"Unexpected: {e}")
             result['base_relation'] = 'ERROR'
             result['refined_relation'] = 'ERROR'
             result['label'] = 'Error'
             return result
-    
-    @classmethod
-    def _normalize_relation_input(cls, input_str: str) -> str:
-        """Convert inputs to standardized relation codes with caching."""
-        # Check cache first
-        cache_key = f"norm:{input_str}"
-        if cache_key in cls._normalization_cache:
-            return cls._normalization_cache[cache_key]
-        
-        try:
-            if not isinstance(input_str, str):
-                result = str(input_str).upper()
-                cls._normalization_cache[cache_key] = result
-                return result
-            
-            # First check extended aliases
-            key = input_str.lower().replace(' ', '').replace('-', '').replace('_', '')
-            if key in cls.RELATION_ALIASES:
-                result = cls.RELATION_ALIASES[key]
-                cls._normalization_cache[cache_key] = result
-                return result
-            
-            mapping = {
-                # Basic relations
-                'father': 'FATHER', 'dad': 'FATHER', 'papa': 'FATHER', 'தந்தை': 'FATHER',
-                'mother': 'MOTHER', 'mom': 'MOTHER', 'amma': 'MOTHER', 'தாய்': 'MOTHER',
-                
-                # Siblings with age
-                'brother': 'BROTHER',
-                'elderbrother': 'ELDER_BROTHER', 'elder brother': 'ELDER_BROTHER',
-                'youngerbrother': 'YOUNGER_BROTHER', 'younger brother': 'YOUNGER_BROTHER',
-                
-                'sister': 'SISTER',
-                'eldersister': 'ELDER_SISTER', 'elder sister': 'ELDER_SISTER',
-                'youngersister': 'YOUNGER_SISTER', 'younger sister': 'YOUNGER_SISTER',
-                
-                # Children
-                'son': 'SON', 'மகன்': 'SON',
-                'daughter': 'DAUGHTER', 'மகள்': 'DAUGHTER',
-                
-                # Spouses
-                'husband': 'HUSBAND', 'கணவன்': 'HUSBAND',
-                'wife': 'WIFE', 'மனைவி': 'WIFE',
-                
-                # Grandparents
-                'grandfather': 'GRANDFATHER', 'தாத்தா': 'GRANDFATHER',
-                'grandmother': 'GRANDMOTHER', 'பாட்டி': 'GRANDMOTHER',
-                
-                # Tamil variants (direct codes)
-                'அப்பா': 'FATHER',
-                'அம்மா': 'MOTHER',
-                'அண்ணன்': 'ELDER_BROTHER',
-                'அக்கா': 'ELDER_SISTER',
-                'தம்பி': 'YOUNGER_BROTHER',
-                'தங்கை': 'YOUNGER_SISTER',
-                
-                # Uncles/Aunts (Tamil)
-                'பெரியப்பா': 'FATHER_ELDER_BROTHER',
-                'சித்தப்பா': 'FATHER_YOUNGER_BROTHER',
-                'அத்தை': 'FATHER_SISTER',
-                'மாமா': 'MOTHER_BROTHER',
-                'பெரியம்மா': 'MOTHER_ELDER_SISTER',
-                'சித்தி': 'MOTHER_YOUNGER_SISTER',
-                
-                # In-laws (Tamil)
-                'மாமனார்': 'FATHER_IN_LAW',
-                'மாமியார்': 'MOTHER_IN_LAW',
-                'அத்தான்': 'BROTHER_IN_LAW',
-                'அண்ணி': 'SISTER_IN_LAW',
-                
-                # Additional relations
-                'stepfather': 'STEP_FATHER',
-                'stepmother': 'STEP_MOTHER',
-                'stepbrother': 'STEP_BROTHER',
-                'stepsister': 'STEP_SISTER',
-                'nephew': 'NEPHEW',
-                'niece': 'NIECE',
-                'grandson': 'GRANDSON',
-                'granddaughter': 'GRANDDAUGHTER',
-                'cousin': 'COUSIN_MALE',
-            }
-            
-            key = input_str.lower().replace(' ', '')
-            if key in mapping:
-                result = mapping[key]
-                cls._normalization_cache[cache_key] = result
-                return result
-            
-            # Default: uppercase
-            result = input_str.upper()
-            cls._normalization_cache[cache_key] = result
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error normalizing input '{input_str}': {str(e)}")
-            return str(input_str).upper()
-    
+
     @classmethod
     def _apply_refinements(
         cls,
@@ -1614,102 +1454,68 @@ class RelationAutomationEngine:
         to_person: Optional[Any] = None,
         context: Optional[Dict] = None
     ) -> str:
-        """Apply Tamil-specific refinements with age comparison."""
-        
+        """Apply Tamil-specific refinements and age-based distinctions."""
         if not base_code:
             return base_code
-        
+
         try:
             context = context or {}
-            
-            # If it's already a standard code, return as is
+
             if base_code in cls.TAMIL_REFINEMENT_MAP.values():
                 return base_code
-            
-            # Determine family side
+
             family_side = None
             if len(path_elements) > 0:
-                first_relation = path_elements[0]
-                if first_relation in ['FATHER', 'FATHER_ELDER_BROTHER', 'FATHER_YOUNGER_BROTHER', 'FATHER_SISTER']:
+                first = path_elements[0]
+                if first in ['FATHER', 'FATHER_ELDER_BROTHER', 'FATHER_YOUNGER_BROTHER', 'FATHER_SISTER']:
                     family_side = 'PATERNAL'
-                elif first_relation in ['MOTHER', 'MOTHER_BROTHER', 'MOTHER_ELDER_SISTER', 'MOTHER_YOUNGER_SISTER']:
+                elif first in ['MOTHER', 'MOTHER_BROTHER', 'MOTHER_ELDER_SISTER', 'MOTHER_YOUNGER_SISTER']:
                     family_side = 'MATERNAL'
-            
-            # Get age context
+
             age_context = cls._get_age_context(from_person, to_person)
-            
-            # Special handling for step relationships
-            if base_code == 'STEP_MOTHER':
-                if len(path_elements) == 2 and path_elements[0] == 'FATHER':
-                    return 'STEP_MOTHER'
-            
-            elif base_code == 'STEP_FATHER':
-                if len(path_elements) == 2 and path_elements[0] == 'MOTHER':
-                    return 'STEP_FATHER'
-            
-            # Handle parent's siblings with age context
-            if base_code == 'FATHER_BROTHER':
-                if family_side == 'PATERNAL':
-                    if age_context == 'ELDER':
-                        return 'FATHER_ELDER_BROTHER'
-                    elif age_context == 'YOUNGER':
-                        return 'FATHER_YOUNGER_BROTHER'
-            
-            elif base_code == 'FATHER_SISTER':
-                if family_side == 'PATERNAL':
-                    if age_context == 'ELDER':
-                        return 'FATHER_ELDER_SISTER'
-                    elif age_context == 'YOUNGER':
-                        return 'FATHER_YOUNGER_SISTER'
-            
-            elif base_code == 'MOTHER_SISTER':
-                if family_side == 'MATERNAL':
-                    if age_context == 'ELDER':
-                        return 'MOTHER_ELDER_SISTER'
-                    elif age_context == 'YOUNGER':
-                        return 'MOTHER_YOUNGER_SISTER'
-            
-            # Handle direct siblings with age
-            elif base_code in ['BROTHER', 'SISTER'] and len(path_elements) == 1:
-                if base_code == 'BROTHER':
-                    if age_context == 'ELDER':
-                        return 'ELDER_BROTHER'
-                    elif age_context == 'YOUNGER':
-                        return 'YOUNGER_BROTHER'
-                elif base_code == 'SISTER':
-                    if age_context == 'ELDER':
-                        return 'ELDER_SISTER'
-                    elif age_context == 'YOUNGER':
-                        return 'YOUNGER_SISTER'
-            
-            # Handle generic mappings
+
+            if base_code == 'STEP_MOTHER' and len(path_elements) == 2 and path_elements[0] == 'FATHER':
+                return 'STEP_MOTHER'
+            if base_code == 'STEP_FATHER' and len(path_elements) == 2 and path_elements[0] == 'MOTHER':
+                return 'STEP_FATHER'
+
+            if base_code == 'FATHER_BROTHER' and family_side == 'PATERNAL':
+                return 'FATHER_ELDER_BROTHER' if age_context == 'ELDER' else 'FATHER_YOUNGER_BROTHER'
+            if base_code == 'FATHER_SISTER' and family_side == 'PATERNAL':
+                return 'FATHER_ELDER_SISTER' if age_context == 'ELDER' else 'FATHER_YOUNGER_SISTER'
+            if base_code == 'MOTHER_SISTER' and family_side == 'MATERNAL':
+                return 'MOTHER_ELDER_SISTER' if age_context == 'ELDER' else 'MOTHER_YOUNGER_SISTER'
+
+            if base_code == 'BROTHER' and len(path_elements) == 1:
+                return 'ELDER_BROTHER' if age_context == 'ELDER' else 'YOUNGER_BROTHER'
+            if base_code == 'SISTER' and len(path_elements) == 1:
+                return 'ELDER_SISTER' if age_context == 'ELDER' else 'YOUNGER_SISTER'
+
             if base_code in cls.TAMIL_REFINEMENT_MAP:
                 return cls.TAMIL_REFINEMENT_MAP[base_code]
-            
+
             return base_code
-            
+
         except Exception as e:
-            logger.error(f"Error in _apply_refinements for {base_code}: {str(e)}")
+            logger.error(f"Error in _apply_refinements for {base_code}: {e}")
             return base_code
-    
+
     @classmethod
-    def _get_age_context(cls, from_person: Optional[Any], to_person: Optional[Any] = None) -> Optional[str]:
+    def _get_age_context(cls, from_person: Optional[Any], to_person: Optional[Any]) -> Optional[str]:
         """Determine age context between two persons."""
         if not to_person or not from_person:
             return None
-            
         try:
             if hasattr(from_person, 'date_of_birth') and hasattr(to_person, 'date_of_birth'):
                 if from_person.date_of_birth and to_person.date_of_birth:
                     if from_person.date_of_birth < to_person.date_of_birth:
-                        return 'ELDER'  # from_person is elder
+                        return 'ELDER'
                     elif from_person.date_of_birth > to_person.date_of_birth:
-                        return 'YOUNGER'  # from_person is younger
-        except (AttributeError, TypeError) as e:
-            logger.debug(f"Could not determine age context: {str(e)}")
-        
+                        return 'YOUNGER'
+        except Exception:
+            pass
         return None
-    
+
     @classmethod
     def get_relation_with_user_context(
         cls,
@@ -1718,23 +1524,11 @@ class RelationAutomationEngine:
         user_profile: Any,
         to_person: Optional[Any] = None
     ) -> Dict:
-        """
-        Convenience method that automatically extracts context from user profile.
-        
-        Args:
-            from_person: Starting person
-            path_elements: List of relation steps
-            user_profile: User's profile object with all fields
-            to_person: Target person (optional)
-        
-        Returns:
-            Dictionary with relation details including profile-based labels
-        """
-        # Extract all profile fields
+        """Convenience method to extract context from user profile."""
         context = {
             'language': getattr(user_profile, 'preferred_language', 'ta'),
-            'religion': getattr(user_profile, 'religion', ''),
-            'caste': getattr(user_profile, 'caste', ''),
+            'lifestyle': getattr(user_profile, 'lifestyle', ''),
+            'familyname8': getattr(user_profile, 'familyname8', ''),
             'family_name': getattr(user_profile, 'familyname1', ''),
             'native': getattr(user_profile, 'native', ''),
             'present_city': getattr(user_profile, 'present_city', ''),
@@ -1743,93 +1537,63 @@ class RelationAutomationEngine:
             'state': getattr(user_profile, 'state', ''),
             'nationality': getattr(user_profile, 'nationality', '')
         }
-        
         return cls.calculate_relation_from_path(
             from_person=from_person,
             path_elements=path_elements,
             to_person=to_person,
             context=context
         )
-    
+        
+    @classmethod
+    def _get_match_token(cls, relation_code: str) -> str:
+        """
+        Token used for matching composed paths.
+        Uses match_token if present; else falls back to default_english.
+        """
+        cache_key = f"match_token:{relation_code}"
+        if cache_key in cls._token_cache:
+            return cls._token_cache[cache_key]
+
+        try:
+            fixed_rel = FixedRelation.objects.filter(relation_code=relation_code, is_active=True).first()
+            if not fixed_rel:
+                token = relation_code.lower().replace(' ', '_')
+            else:
+                source = fixed_rel.match_token or fixed_rel.default_english
+                if source:
+                    token = source.lower().replace(' ', '_')
+                    token = re.sub(r'[^a-z0-9_]', '', token)
+                else:
+                    token = relation_code.lower().replace(' ', '_')
+            cls._token_cache[cache_key] = token
+            return token
+        except Exception as e:
+            logger.error(f"Error getting match token for {relation_code}: {e}")
+            token = relation_code.lower().replace(' ', '_')
+            cls._token_cache[cache_key] = token
+            return token
+
     @classmethod
     def generate_relation_examples(cls) -> List[Dict]:
         """Generate comprehensive examples for testing."""
         examples = [
-            # Level 1: Direct
-            {'path': ['father'], 'expected': 'FATHER', 'description': 'Direct father'},
-            {'path': ['mother'], 'expected': 'MOTHER', 'description': 'Direct mother'},
-            
-            # Level 2: Two steps
-            {'path': ['father', 'father'], 'expected': 'GRANDFATHER', 'description': 'Paternal grandfather'},
-            {'path': ['mother', 'father'], 'expected': 'GRANDFATHER', 'description': 'Maternal grandfather'},
-            {'path': ['father', 'mother'], 'expected': 'GRANDMOTHER', 'description': 'Paternal grandmother'},
-            {'path': ['mother', 'mother'], 'expected': 'GRANDMOTHER', 'description': 'Maternal grandmother'},
-            
-            # Father's wife (step-mother)
-            {'path': ['father', 'wife'], 'expected': 'STEP_MOTHER', 'description': 'Father\'s wife (step-mother)'},
-            
-            # Mother's husband (step-father)
-            {'path': ['mother', 'husband'], 'expected': 'STEP_FATHER', 'description': 'Mother\'s husband (step-father)'},
-            
-            # Father's siblings
-            {'path': ['father', 'elder brother'], 'expected': 'FATHER_ELDER_BROTHER', 'description': 'Father\'s elder brother'},
-            {'path': ['father', 'younger brother'], 'expected': 'FATHER_YOUNGER_BROTHER', 'description': 'Father\'s younger brother'},
-            {'path': ['father', 'sister'], 'expected': 'FATHER_SISTER', 'description': 'Father\'s sister'},
-            
-            # Mother's siblings
-            {'path': ['mother', 'brother'], 'expected': 'MOTHER_BROTHER', 'description': 'Mother\'s brother'},
-            {'path': ['mother', 'elder sister'], 'expected': 'MOTHER_ELDER_SISTER', 'description': 'Mother\'s elder sister'},
-            {'path': ['mother', 'younger sister'], 'expected': 'MOTHER_YOUNGER_SISTER', 'description': 'Mother\'s younger sister'},
-            
-            # Sibling's spouse
-            {'path': ['elder brother', 'wife'], 'expected': 'SISTER_IN_LAW', 'description': 'Elder brother\'s wife'},
-            {'path': ['younger sister', 'husband'], 'expected': 'BROTHER_IN_LAW', 'description': 'Younger sister\'s husband'},
-            
-            # Children's spouses
-            {'path': ['son', 'wife'], 'expected': 'DAUGHTER_IN_LAW', 'description': 'Son\'s wife'},
-            {'path': ['daughter', 'husband'], 'expected': 'SON_IN_LAW', 'description': 'Daughter\'s husband'},
-            
-            # Level 3: Three steps
-            {'path': ['father', 'elder brother', 'son'], 'expected': 'COUSIN_MALE', 'description': 'Father\'s elder brother\'s son (cousin)'},
-            {'path': ['mother', 'sister', 'daughter'], 'expected': 'COUSIN_FEMALE', 'description': 'Mother\'s sister\'s daughter (cousin)'},
-            
-            # Step-siblings
-            {'path': ['step father', 'son'], 'expected': 'STEP_BROTHER', 'description': 'Step-father\'s son'},
-            {'path': ['step mother', 'daughter'], 'expected': 'STEP_SISTER', 'description': 'Step-mother\'s daughter'},
-            
-            # Spouse's relatives
-            {'path': ['husband', 'father'], 'expected': 'FATHER_IN_LAW', 'description': 'Husband\'s father'},
-            {'path': ['wife', 'mother'], 'expected': 'MOTHER_IN_LAW', 'description': 'Wife\'s mother'},
-            
-            # Nephews/Nieces
-            {'path': ['elder brother', 'son'], 'expected': 'NEPHEW', 'description': 'Elder brother\'s son'},
-            {'path': ['younger sister', 'daughter'], 'expected': 'NIECE', 'description': 'Younger sister\'s daughter'},
-            
-            # Grandchildren
-            {'path': ['son', 'son'], 'expected': 'GRANDSON', 'description': 'Son\'s son'},
-            {'path': ['daughter', 'daughter'], 'expected': 'GRANDDAUGHTER', 'description': 'Daughter\'s daughter'},
-            
-            # Tamil specific examples
-            {'path': ['அப்பா', 'அண்ணன்'], 'expected': 'FATHER_ELDER_BROTHER', 'description': 'Father\'s elder brother (Tamil)'},
-            {'path': ['அம்மா', 'தங்கை'], 'expected': 'MOTHER_YOUNGER_SISTER', 'description': 'Mother\'s younger sister (Tamil)'},
+            # Add your test paths here as needed
         ]
-        
-        # Add validation
-        for example in examples:
+
+        for ex in examples:
             try:
-                result = cls.calculate_relation_from_path(
+                res = cls.calculate_relation_from_path(
                     from_person=None,
-                    path_elements=example['path'],
+                    path_elements=ex['path'],
                     context={'test_mode': True, 'language': 'ta'}
                 )
-                example['actual'] = result.get('refined_relation')
-                example['label'] = result.get('label')
-                example['success'] = example['actual'] == example['expected']
+                ex['actual'] = res.get('refined_relation')
+                ex['label'] = res.get('label')
+                ex['success'] = ex['actual'] == ex['expected']
             except Exception as e:
-                example['actual'] = 'ERROR'
-                example['success'] = False
-                example['error'] = str(e)
-        
+                ex['actual'] = 'ERROR'
+                ex['success'] = False
+                ex['error'] = str(e)
         return examples
 
 
@@ -1838,17 +1602,15 @@ def clear_relation_caches():
     """Clear all relation service caches."""
     try:
         RelationAutomationEngine._normalization_cache.clear()
-        RelationAutomationEngine._composition_cache.clear()
-        
-        # Clear AshramamLabelService cache if it exists
+        RelationAutomationEngine._token_cache.clear()
+        RelationAutomationEngine._token_to_relation_map = None
         if hasattr(AshramamLabelService, '_labels_cache'):
             AshramamLabelService._labels_cache = None
             AshramamLabelService._cache_timestamp = None
-        
-        # Clear Django cache
         from django.core.cache import cache
         cache.clear()
-        
         logger.info("All relation caches cleared")
     except Exception as e:
-        logger.error(f"Error clearing caches: {str(e)}")
+        logger.error(f"Error clearing caches: {e}")
+        
+    

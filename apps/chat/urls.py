@@ -53,9 +53,9 @@ urlpatterns = [
     # admin
     path('admin/rooms/', AdminRoomListView.as_view(), name='admin-rooms'),
     path('admin/messages/<int:message_id>/delete/', AdminDeleteMessageView.as_view(), name='admin-delete-message'),
-    path('admin/users/', AdminUserListView.as_view(), name='admin-users'),
+    # path('admin/users/', AdminUserListView.as_view(), name='admin-users'),
     path('admin/groups/<int:room_id>/remove/<int:user_id>/', AdminRemoveFromGroupView.as_view(), name='admin-remove-from-group'),
     path('admin/blocked/', AdminBlockedList.as_view(), name='admin-blocked-list'),
-    
-    
+    path('admin/stats/', AdminStatsView.as_view(), name='admin-stats'),  
+    path('admin/users/', AdminUserChatStatusView.as_view(), name='admin-user-chat-status'),
 ]

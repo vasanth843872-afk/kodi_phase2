@@ -13,12 +13,14 @@ from .serializers import (
     PostVisibilityRuleAdminSerializer, PostVisibilityRuleCreateUpdateSerializer
 )
 from .services import PostVisibilityService, PostEngagementService
+from admin_app.permissions import CanManageChat,CanManagePost
+from apps.notifications.services import NotificationService, get_user_display_name
 
 
 # ---------- Post Admin ----------
 class AdminPostListView(generics.ListAPIView):
     """GET /admin/posts/ - list all posts (with optional filters)."""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
     serializer_class = PostAdminListSerializer
 
     def get_queryset(self):
@@ -39,7 +41,7 @@ class AdminPostDetailView(APIView):
        DELETE /admin/posts/<id>/ - hard delete post
        PATCH /admin/posts/<id>/ - toggle active/deleted status
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
 
     def get(self, request, post_id):
         post = get_object_or_404(Post.objects.select_related('author').prefetch_related('media', 'reports'), id=post_id)
@@ -48,6 +50,16 @@ class AdminPostDetailView(APIView):
 
     def delete(self, request, post_id):
         post = get_object_or_404(Post, id=post_id)
+        
+        # Send notification to post author before deletion
+        NotificationService.create_post_notification(
+            post=post,
+            notification_type='post_deleted',
+            users=[post.author],
+            message=f"Admin {get_user_display_name(request.user)} deleted your post",
+            actor=request.user
+        )
+        
         post.delete()  # hard delete
         return Response({'detail': 'Post permanently deleted.'}, status=status.HTTP_204_NO_CONTENT)
 
@@ -59,17 +71,47 @@ class AdminPostDetailView(APIView):
             post.save(update_fields=['is_active'])
             # Invalidate visibility cache
             PostVisibilityService.invalidate_post_audience(post)
+            
+            # Send notification to post author
+            NotificationService.create_post_notification(
+                post=post,
+                notification_type='post_visibility_changed',
+                users=[post.author],
+                message=f"Admin {get_user_display_name(request.user)} hid your post",
+                actor=request.user
+            )
+            
             return Response({'detail': 'Post hidden.'})
         elif action == 'unhide':
             post.is_active = True
             post.save(update_fields=['is_active'])
             PostVisibilityService.precompute_audience_for_post(post)
+            
+            # Send notification to post author
+            NotificationService.create_post_notification(
+                post=post,
+                notification_type='post_visibility_changed',
+                users=[post.author],
+                message=f"Admin {get_user_display_name(request.user)} restored your post",
+                actor=request.user
+            )
+            
             return Response({'detail': 'Post restored.'})
         elif action == 'soft_delete':
             post.is_deleted = True
             post.deleted_at = timezone.now()
             post.save(update_fields=['is_deleted', 'deleted_at'])
             PostVisibilityService.invalidate_post_audience(post)
+            
+            # Send notification to post author
+            NotificationService.create_post_notification(
+                post=post,
+                notification_type='post_deleted',
+                users=[post.author],
+                message=f"Admin {get_user_display_name(request.user)} deleted your post",
+                actor=request.user
+            )
+            
             return Response({'detail': 'Post soft-deleted.'})
         else:
             return Response({'error': 'Invalid action. Use hide/unhide/soft_delete.'}, status=400)
@@ -78,7 +120,7 @@ class AdminPostDetailView(APIView):
 # ---------- Comment Admin ----------
 class AdminCommentListView(generics.ListAPIView):
     """GET /admin/comments/ - list all comments (with optional post_id filter)."""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
     serializer_class = PostCommentAdminSerializer
 
     def get_queryset(self):
@@ -91,10 +133,20 @@ class AdminCommentListView(generics.ListAPIView):
 
 class AdminCommentDeleteView(APIView):
     """DELETE /admin/comments/<id>/ - permanently delete a comment."""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
 
     def delete(self, request, comment_id):
         comment = get_object_or_404(PostComment, id=comment_id)
+        
+        # Send notification to comment author before deletion
+        NotificationService.create_post_notification(
+            post=comment.post,
+            notification_type='post_commented',  # Using same type for comment actions
+            users=[comment.author],
+            message=f"Admin {get_user_display_name(request.user)} deleted your comment",
+            actor=request.user
+        )
+        
         comment.delete()
         # Update post comment count
         if comment.post:
@@ -105,7 +157,7 @@ class AdminCommentDeleteView(APIView):
 # ---------- Report Admin ----------
 class AdminReportListView(generics.ListAPIView):
     """GET /admin/reports/ - list all post reports."""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
     serializer_class = PostReportAdminSerializer
 
     def get_queryset(self):
@@ -120,7 +172,7 @@ class AdminReportListView(generics.ListAPIView):
 
 class AdminReportReviewView(APIView):
     """POST /admin/reports/<id>/review/ - mark report as reviewed and take action."""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
 
     def post(self, request, report_id):
         report = get_object_or_404(PostReport, id=report_id)
@@ -152,7 +204,7 @@ class AdminVisibilityRuleListView(generics.ListCreateAPIView):
     """GET /admin/visibility-rules/ - list all rules
        POST /admin/visibility-rules/ - create a new rule
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
     queryset = PostVisibilityRule.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
@@ -169,7 +221,7 @@ class AdminVisibilityRuleDetailView(generics.RetrieveUpdateDestroyAPIView):
        PUT/PATCH /admin/visibility-rules/<id>/ - update rule
        DELETE /admin/visibility-rules/<id>/ - delete rule
     """
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
     queryset = PostVisibilityRule.objects.all()
     lookup_url_kwarg = 'rule_id'
 
@@ -182,7 +234,7 @@ class AdminVisibilityRuleDetailView(generics.RetrieveUpdateDestroyAPIView):
 # ---------- Stats Admin ----------
 class AdminPostsStatsView(APIView):
     """GET /admin/posts/stats/ - basic statistics for posts."""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated,CanManagePost]
 
     def get(self, request):
         stats = {

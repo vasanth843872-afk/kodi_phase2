@@ -122,15 +122,15 @@ class PostVisibilityRule(models.Model):
     description = models.TextField(blank=True)
     
     # Rule criteria - JSON fields for flexible filtering
-    caste_criteria = models.JSONField(
+    familyname8_criteria = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of caste values (OR logic within field)"
+        help_text="List of familyname8 values (OR logic within field)"
     )
-    religion_criteria = models.JSONField(
+    lifestyle_criteria = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of religion values (OR logic within field)"
+        help_text="List of lifestyle values (OR logic within field)"
     )
     family_name_criteria = models.JSONField(
         default=list,
@@ -176,10 +176,10 @@ class PostVisibilityRule(models.Model):
             return False
         
         # Check each criterion - ALL must match (AND logic)
-        if self.caste_criteria and profile.caste not in self.caste_criteria:
+        if self.familyname8_criteria and profile.familyname8 not in self.familyname8_criteria:
             return False
         
-        if self.religion_criteria and profile.religion not in self.religion_criteria:
+        if self.lifestyle_criteria and profile.lifestyle not in self.lifestyle_criteria:
             return False
         
         # Check family names across all family name fields
@@ -205,11 +205,11 @@ class PostVisibilityRule(models.Model):
         
         queryset = UserProfile.objects.all()
         
-        if self.caste_criteria:
-            queryset = queryset.filter(caste__in=self.caste_criteria)
+        if self.familyname8_criteria:
+            queryset = queryset.filter(familyname8__in=self.familyname8_criteria)
         
-        if self.religion_criteria:
-            queryset = queryset.filter(religion__in=self.religion_criteria)
+        if self.lifestyle_criteria:
+            queryset = queryset.filter(lifestyle__in=self.lifestyle_criteria)
         
         if self.family_name_criteria:
             queryset = queryset.filter(

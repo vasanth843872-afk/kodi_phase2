@@ -218,6 +218,11 @@ class PersonRelation(models.Model):
         on_delete=models.CASCADE,
         related_name='person_relations'
     )
+    birth_order = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Birth order for family relations (1=first, 2=second, etc.)"
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     
     # Metadata
@@ -274,35 +279,35 @@ class PersonRelation(models.Model):
                 f"Gender incompatible for relation {self.relation.relation_code}"
             )
             
-        SINGLE_RELATIONS = {'FATHER', 'MOTHER', 'WIFE', 'HUSBAND'}
+        # SINGLE_RELATIONS = {'FATHER', 'MOTHER', 'WIFE', 'HUSBAND'}
 
-        relation_code = self.relation.relation_code
+        # relation_code = self.relation.relation_code
 
-        if relation_code in SINGLE_RELATIONS:
-            qs = PersonRelation.objects.filter(
-                from_person=self.from_person,
-                relation__relation_code=relation_code
-            )
+        # if relation_code in SINGLE_RELATIONS:
+        #     qs = PersonRelation.objects.filter(
+        #         from_person=self.from_person,
+        #         relation__relation_code=relation_code
+        #     )
 
-            # exclude self while updating
-            if self.pk:
-                qs = qs.exclude(pk=self.pk)
+        #     # exclude self while updating
+        #     if self.pk:
+        #         qs = qs.exclude(pk=self.pk)
 
-            if qs.exists():
-                raise ValidationError(
-                    f"You already have a {relation_code.lower()}"
-                )
-            if relation_code in {'WIFE', 'HUSBAND'}:
-                    qs = PersonRelation.objects.filter(
-                        to_person=self.to_person,
-                        relation__relation_code__in={'WIFE', 'HUSBAND'}
-                    )
+        #     if qs.exists():
+        #         raise ValidationError(
+        #             f"You already have a {relation_code.lower()}"
+        #         )
+            # if relation_code in {'WIFE', 'HUSBAND'}:
+            #         qs = PersonRelation.objects.filter(
+            #             to_person=self.to_person,
+            #             relation__relation_code__in={'WIFE', 'HUSBAND'}
+            #         )
 
-                    if self.pk:
-                        qs = qs.exclude(pk=self.pk)
+            #         if self.pk:
+            #             qs = qs.exclude(pk=self.pk)
 
-                    if qs.exists():
-                        raise ValidationError("You already have a spouse")
+            #         if qs.exists():
+            #             raise ValidationError("You already have a spouse")
             
             conflicts = []
             # Detect conflicts
@@ -339,6 +344,73 @@ class PersonRelation(models.Model):
     
     def save(self, *args, **kwargs):
         self.full_clean()
+        
+        family_relations = {
+            'SON', 'DAUGHTER', 
+            'ELDER_BROTHER', 'YOUNGER_BROTHER', 
+            'ELDER_SISTER', 'YOUNGER_SISTER',
+            'FATHER', 'MOTHER', 'HUSBAND', 'WIFE'
+        }
+        
+        if self.relation.relation_code in family_relations and not self.birth_order:
+            # Determine which person to scope birth order by
+            sibling_codes = {'ELDER_BROTHER', 'YOUNGER_BROTHER', 'ELDER_SISTER', 'YOUNGER_SISTER'}
+            parent_codes = {'FATHER', 'MOTHER'}
+            child_codes = {'SON', 'DAUGHTER'}
+            spouse_codes = {'HUSBAND', 'WIFE'}
+            
+            if self.relation.relation_code in sibling_codes:
+                # Sibling: birth order is per the target person (who gets the sibling)
+                scope_person = self.to_person
+            elif self.relation.relation_code in parent_codes:
+                # Parent: birth order is per the child (to_person) – which child number?
+                # Usually birth order of children is stored on child, but here we use to_person
+                scope_person = self.to_person
+            elif self.relation.relation_code in child_codes:
+                # Child: birth order is per the parent (from_person)
+                scope_person = self.from_person
+            elif self.relation.relation_code in spouse_codes:
+                # Spouse: usually only one, but if multiple allowed, scope by from_person
+                scope_person = self.from_person
+            else:
+                scope_person = self.from_person
+            
+            # Get existing relations of the same type for the scope person
+            existing = PersonRelation.objects.filter(
+                to_person=scope_person if self.relation.relation_code in sibling_codes else scope_person,
+                relation__relation_code=self.relation.relation_code,
+                birth_order__isnull=False
+            ).order_by('birth_order')
+            
+            # Adjust filter for sibling case (already using to_person)
+            if self.relation.relation_code in sibling_codes:
+                existing = PersonRelation.objects.filter(
+                    to_person=self.to_person,
+                    relation__relation_code=self.relation.relation_code,
+                    birth_order__isnull=False
+                ).order_by('birth_order')
+            elif self.relation.relation_code in parent_codes:
+                existing = PersonRelation.objects.filter(
+                    to_person=self.to_person,
+                    relation__relation_code=self.relation.relation_code,
+                    birth_order__isnull=False
+                ).order_by('birth_order')
+            elif self.relation.relation_code in child_codes:
+                existing = PersonRelation.objects.filter(
+                    from_person=self.from_person,
+                    relation__relation_code=self.relation.relation_code,
+                    birth_order__isnull=False
+                ).order_by('birth_order')
+            else:
+                existing = PersonRelation.objects.filter(
+                    from_person=self.from_person,
+                    relation__relation_code=self.relation.relation_code,
+                    birth_order__isnull=False
+                ).order_by('birth_order')
+            
+            max_order = existing.last().birth_order if existing.exists() else 0
+            self.birth_order = max_order + 1
+        
         super().save(*args, **kwargs)
     
     def confirm(self, confirmed_by=None):
@@ -365,6 +437,38 @@ class PersonRelation(models.Model):
             self.resolved_at = timezone.now()
         self.save()
     
+    def get_display_name_with_order(self, language='en'):
+        """Get relation label with birth order for family relations."""
+        label_info = self.get_label(language)
+        display_label = label_info.get('label', self.relation.relation_code)
+        
+        # Add birth order for family relationships
+        family_relations = {'SON', 'DAUGHTER', 'ELDER_BROTHER', 'YOUNGER_BROTHER', 'ELDER_SISTER', 'YOUNGER_SISTER',
+                           'FATHER', 'MOTHER', 'HUSBAND', 'WIFE'}
+        
+        if self.relation.relation_code in family_relations and self.birth_order:
+            if language == 'ta':
+                # Tamil: Add ordinal suffix
+                if self.birth_order == 1:
+                    display_label += f" (#{self.birth_order}th)"
+                else:
+                    # Tamil ordinal numbers (basic implementation)
+                    tamil_ordinals = {1: 'first', 2: 'second', 3: 'third'}
+                    ordinal = tamil_ordinals.get(self.birth_order, f"#{self.birth_order}th")
+                    display_label += f" ({ordinal})"
+            else:
+                # English: Use standard ordinal
+                if self.birth_order == 1:
+                    display_label += " (1st)"
+                elif self.birth_order == 2:
+                    display_label += " (2nd)"
+                elif self.birth_order == 3:
+                    display_label += " (3rd)"
+                else:
+                    display_label += f" ({self.birth_order}th)"
+        
+        return display_label
+    
     def get_label(self, language='en'):
         """Get relation label with context."""
         from apps.relations.services import RelationLabelService
@@ -375,15 +479,15 @@ class PersonRelation(models.Model):
         
         # Use default values if profiles not available
         language = language or (from_profile.get('preferred_language') if from_profile else 'en')
-        religion = (from_profile.get('religion') if from_profile else '') or (to_profile.get('religion') if to_profile else '')
-        caste = (from_profile.get('caste') if from_profile else '') or (to_profile.get('caste') if to_profile else '')
+        lifestyle = (from_profile.get('lifestyle') if from_profile else '') or (to_profile.get('lifestyle') if to_profile else '')
+        familyname8 = (from_profile.get('familyname8') if from_profile else '') or (to_profile.get('familyname8') if to_profile else '')
         family_name = self.from_person.family.family_name
         
         return RelationLabelService.get_relation_label(
             relation_code=self.relation.relation_code,
             language=language,
-            religion=religion,
-            caste=caste,
+            lifestyle=lifestyle,
+            familyname8=familyname8,
             family_name=family_name
         )
         

@@ -1,9 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+import traceback
+from django.views.decorators.cache import never_cache
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils.decorators import method_decorator
+
 from django.utils import timezone
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.paginator import Paginator
@@ -16,15 +20,22 @@ from .serializers import (
     PostCommentSerializer, PostCommentCreateSerializer,
     PostVisibilityRuleSerializer
 )
+from .notification_helpers import get_users_for_post_notification
+from apps.notifications.services import NotificationService, get_user_display_name
 
-
+@method_decorator(never_cache, name='dispatch')
 class PostCreateView(APIView):
     """Create a new post."""
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
         try:
-            data = request.data.copy()
+            # Extract only the fields required by the serializer (avoid copying file objects)
+            data = {
+                'content': request.data.get('content'),
+                'visibility': request.data.get('visibility'),
+                'custom_visibility_rule': request.data.get('custom_visibility_rule')
+            }
             
             # Handle visibility rule for custom visibility
             if data.get('visibility') == 'custom':
@@ -61,6 +72,17 @@ class PostCreateView(APIView):
                     # Precompute audience for performance
                     PostVisibilityService.precompute_audience_for_post(post)
                     
+                    # Send post creation notifications to relevant users
+                    users_to_notify = get_users_for_post_notification(post, request.user)
+                    if users_to_notify:
+                        NotificationService.create_post_notification(
+                            post=post,
+                            notification_type='post_created',
+                            users=users_to_notify,
+                            message=f"New post by {get_user_display_name(request.user)}: {post.content[:100]}...",
+                            actor=request.user
+                        )
+                    
                     # Serialize and return
                     response_serializer = PostSerializer(
                         post,
@@ -78,11 +100,10 @@ class PostCreateView(APIView):
             )
             
         except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
+            return Response({
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=500)
 
 class PostUpdateView(APIView):
     """Update an existing post."""
@@ -99,7 +120,12 @@ class PostUpdateView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             
-            data = request.data.copy()
+            # Extract only the fields required by the serializer (avoid copying file objects)
+            data = {
+                'content': request.data.get('content'),
+                'visibility': request.data.get('visibility'),
+                'custom_visibility_rule': request.data.get('custom_visibility_rule')
+            }
             
             # Handle visibility changes
             if 'visibility' in data and data['visibility'] != post.visibility:
@@ -134,6 +160,17 @@ class PostUpdateView(APIView):
                     # Recompute audience if visibility changed
                     if 'visibility' in data:
                         PostVisibilityService.precompute_audience_for_post(updated_post)
+                        
+                        # Send post update notifications if visibility changed
+                        users_to_notify = self._get_users_for_post_notification(updated_post)
+                        if users_to_notify:
+                            NotificationService.create_post_notification(
+                                post=updated_post,
+                                notification_type='post_updated',
+                                users=users_to_notify,
+                                message=f"Post updated by {request.user.mobile_number}: {updated_post.content[:100]}...",
+                                actor=request.user
+                            )
                     
                     response_serializer = PostSerializer(
                         updated_post,
@@ -311,6 +348,16 @@ class PostLikeView(APIView):
             
             like, created = PostEngagementService.like_post(request.user, post)
             
+            # Send notification to post author if someone else liked their post
+            if post.author != request.user and like.is_active:
+                NotificationService.create_post_notification(
+                    post=post,
+                    notification_type='post_liked',
+                    users=[post.author],
+                    message=f"{get_user_display_name(request.user)} liked your post",
+                    actor=request.user
+                )
+            
             return Response({
                 'is_liked': like.is_active,
                 'likes_count': post.likes_count,
@@ -433,10 +480,30 @@ class PostCommentCreateView(APIView):
             serializer = PostCommentCreateSerializer(data=data)
             if serializer.is_valid():
                 with transaction.atomic():
-                    comment = serializer.save(author=request.user,post=post)
+                    comment = serializer.save(author=request.user, post=post)
                     
                     # Update post comment count
                     post.update_engagement_counts()
+                    
+                    # Send notification to post author if someone else commented
+                    if post.author != request.user:
+                        NotificationService.create_post_notification(
+                            post=post,
+                            notification_type='post_commented',
+                            users=[post.author],
+                            message=f"{get_user_display_name(request.user)} commented on your post",
+                            actor=request.user
+                        )
+                    
+                    # Send notification to parent comment author if this is a reply
+                    if comment.parent and comment.parent.author != request.user:
+                        NotificationService.create_post_notification(
+                            post=post,
+                            notification_type='post_commented',
+                            users=[comment.parent.author],
+                            message=f"{get_user_display_name(request.user)} replied to your comment",
+                            actor=request.user
+                        )
                     
                     response_serializer = PostCommentSerializer(
                         comment,
@@ -493,6 +560,16 @@ class PostShareView(APIView):
                 share_text=share_text,
                 platform=platform
             )
+            
+            # Send notification to post author if someone else shared their post
+            if post.author != request.user:
+                NotificationService.create_post_notification(
+                    post=post,
+                    notification_type='post_shared',
+                    users=[post.author],
+                    message=f"{get_user_display_name(request.user)} shared your post",
+                    actor=request.user
+                )
             
             return Response({
                 'message': 'Post shared successfully',
@@ -673,4 +750,4 @@ class PostMediaUploadView(APIView):
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            )     

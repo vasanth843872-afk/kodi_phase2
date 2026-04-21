@@ -16,7 +16,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             'fathername1', 'fathername2',
             'mothername1', 'mothername2',
             'gender', 'preferred_language',
-            'religion', 'caste', 'image'
+            'lifestyle', 'familyname8', 'image'
         ]
         read_only_fields = fields
     
@@ -111,7 +111,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
             'fathername1', 'fathername2',
             'mothername1', 'mothername2',
             'gender', 'preferred_language',
-            'religion', 'caste', 'image',
+            'lifestyle', 'familyname8', 'image',
             # STEP-2
             'dateofbirth', 'age', 'native',
             'present_city', 'taluk', 'district',

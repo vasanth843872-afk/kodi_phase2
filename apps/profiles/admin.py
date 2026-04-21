@@ -3,8 +3,8 @@ from .models import UserProfile
 
 class UserProfileAdmin(admin.ModelAdmin):
     """Admin for UserProfile."""
-    list_display = ('user', 'firstname', 'gender', 'religion', 'caste', 'created_at')
-    list_filter = ('gender', 'religion', 'caste')
+    list_display = ('user', 'firstname', 'gender', 'lifestyle', 'familyname8', 'created_at')
+    list_filter = ('gender', 'lifestyle', 'familyname8')
     search_fields = ('user__mobile_number', 'firstname', 'secondname', 'thirdname')
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
@@ -15,7 +15,7 @@ class UserProfileAdmin(admin.ModelAdmin):
                 'fathername1', 'fathername2',
                 'mothername1', 'mothername2',
                 'gender', 'preferred_language',
-                'religion', 'caste','image'
+                'lifestyle', 'culture_of_life','image'
             )
         }),
         ('STEP-2: Private Information', {

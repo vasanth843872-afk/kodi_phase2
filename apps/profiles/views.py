@@ -71,19 +71,29 @@ class MyProfileView(generics.RetrieveUpdateAPIView):
             )
     
     def update(self, request, *args, **kwargs):
-        """Update profile with error handling."""
         try:
-            # Log the update attempt
             logger.info(f"Profile update attempt for user: {request.user.id}")
-            
-            # Perform the update
+
+            # 1. Perform the profile update
             response = super().update(request, *args, **kwargs)
-            
+
+            # 2. Get the UPDATED profile instance (not from request.data)
+            profile_instance = self.get_object()  # or self.get_serializer().instance
+            new_name = profile_instance.firstname.strip() if profile_instance.firstname else request.user.mobile_number
+
+            # 3. Update the linked Person's full_name
+            from apps.genealogy.models import Person   # adjust import path
+
+            person = Person.objects.filter(linked_user=request.user).first()
+            if person and person.full_name != new_name:
+                person.full_name = new_name
+                person.save(update_fields=['full_name'])
+                logger.info(f"Synced Person name to '{new_name}' for user {request.user.id}")
+
             logger.info(f"Profile updated successfully for user: {request.user.id}")
             return response
-            
+
         except ValidationError as e:
-            # Re-raise validation errors as they're already formatted
             raise
         except PermissionDenied:
             logger.warning(f"Permission denied for profile update - user: {request.user.id}")
@@ -200,7 +210,7 @@ class ProfileCompletionStatusView(APIView):
                 'dateofbirth', 'present_city', 'state', 'nationality'
             ]
             step3_fields = [
-                'familyname1', 'religion', 'caste'
+                'familyname1', 'lifestyle', 'familyname8'
             ]
             
             # Calculate completion percentages

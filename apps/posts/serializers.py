@@ -199,7 +199,7 @@ class PostVisibilityRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostVisibilityRule
         fields = [
-            'id', 'name', 'description', 'caste_criteria', 'religion_criteria',
+            'id', 'name', 'description', 'familyname8_criteria', 'lifestyle_criteria',
             'family_name_criteria', 'area_criteria', 'is_active',
             'created_by', 'created_at', 'updated_at', 'eligible_users_count'
         ]
@@ -216,7 +216,7 @@ class PostVisibilityRuleSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """Validate that at least one criterion is specified."""
-        criteria_fields = ['caste_criteria', 'religion_criteria', 'family_name_criteria', 'area_criteria']
+        criteria_fields = ['familyname8_criteria', 'lifestyle_criteria', 'family_name_criteria', 'area_criteria']
         has_criteria = any(
             data.get(field) or getattr(self.instance, field, None) 
             for field in criteria_fields
@@ -224,7 +224,7 @@ class PostVisibilityRuleSerializer(serializers.ModelSerializer):
         
         if not has_criteria:
             raise serializers.ValidationError(
-                "At least one criterion (caste, religion, family_name, or area) must be specified."
+                "At least one criterion (familyname8, lifestyle, family_name, or area) must be specified."
             )
         
         return data
@@ -407,18 +407,18 @@ class PostVisibilityRuleCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostVisibilityRule
         fields = [
-            'name', 'description', 'caste_criteria', 'religion_criteria',
+            'name', 'description', 'familyname8_criteria', 'lifestyle_criteria',
             'family_name_criteria', 'area_criteria', 'is_active'
         ]
     
     def validate(self, data):
         """Validate that at least one criterion is specified."""
-        criteria_fields = ['caste_criteria', 'religion_criteria', 'family_name_criteria', 'area_criteria']
+        criteria_fields = ['familyname8_criteria', 'lifestyle_criteria', 'family_name_criteria', 'area_criteria']
         has_criteria = any(data.get(field) for field in criteria_fields)
         
         if not has_criteria:
             raise serializers.ValidationError(
-                "At least one criterion (caste, religion, family_name, or area) must be specified."
+                "At least one criterion (familyname8, lifestyle, family_name, or area) must be specified."
             )
         
         return data
@@ -504,7 +504,7 @@ class PostVisibilityRuleAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostVisibilityRule
         fields = [
-            'id', 'name', 'description', 'caste_criteria', 'religion_criteria',
+            'id', 'name', 'description', 'familyname8_criteria', 'lifestyle_criteria',
             'family_name_criteria', 'area_criteria', 'is_active',
             'created_by_mobile', 'eligible_users_count', 'created_at', 'updated_at'
         ]
@@ -516,14 +516,14 @@ class PostVisibilityRuleCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PostVisibilityRule
         fields = [
-            'name', 'description', 'caste_criteria', 'religion_criteria',
+            'name', 'description', 'familyname8_criteria', 'lifestyle_criteria',
             'family_name_criteria', 'area_criteria', 'is_active'
         ]
 
     def validate(self, data):
-        criteria_fields = ['caste_criteria', 'religion_criteria', 'family_name_criteria', 'area_criteria']
+        criteria_fields = ['familyname8_criteria', 'lifestyle_criteria', 'family_name_criteria', 'area_criteria']
         if not any(data.get(field) for field in criteria_fields):
             raise serializers.ValidationError(
-                "At least one criterion (caste, religion, family_name, or area) must be specified."
+                "At least one criterion (familyname8, lifestyle, family_name, or area) must be specified."
             )
         return data

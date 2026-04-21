@@ -4,9 +4,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, Count
 from django.utils import timezone
+from admin_app.models import StaffPermission
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from apps.genealogy.models import PersonRelation,Person
+from apps.notifications.services import NotificationService, get_user_display_name
 
 from .models import (
     Event, EventType, VisibilityLevel, RSVP, 
@@ -88,62 +91,158 @@ class EventViewSet(viewsets.ModelViewSet):
     ordering_fields = ['start_date', 'created_at', 'view_count']
     ordering = ['start_date']
     
+    # def get_queryset(self):
+    #     # print("User:", self.request.user, "is_staff:", self.request.user.is_staff)
+    #     queryset = Event.objects.all()
+    #     user = self.request.user
+        
+    #     # Admin sees everything
+    #     if user.is_staff or user.groups.filter(name='Moderators').exists():
+    #         return Event.objects.all().select_related(
+    #         'event_type', 'created_by', 'visibility'
+    #     ).prefetch_related('honorees')
+        
+    #     # Get user's person record
+    #     try:
+    #         user_person = user.person_record
+    #     except Person.DoesNotExist:
+    #         # If no person record, only show approved events
+    #         return queryset.filter(status='APPROVED').select_related(
+    #             'event_type', 'created_by', 'visibility'
+    #         ).prefetch_related('honorees')
+        
+    #     # Get IDs of all people connected to this user
+    #     # via confirmed relations
+    #     connected_person_ids = []
+        
+    #     # People this user is connected TO (outgoing)
+    #     outgoing_connections = PersonRelation.objects.filter(
+    #         from_person=user_person,
+    #         status='confirmed'
+    #     ).values_list('to_person_id', flat=True)
+        
+    #     # People connected TO this user (incoming)
+    #     incoming_connections = PersonRelation.objects.filter(
+    #         to_person=user_person,
+    #         status='confirmed'
+    #     ).values_list('from_person_id', flat=True)
+        
+    #     # Combine all connected person IDs
+    #     connected_person_ids = list(outgoing_connections) + list(incoming_connections)
+        
+    #     # Get all users linked to these connected persons
+    #     connected_user_ids = Person.objects.filter(
+    #         id__in=connected_person_ids,
+    #         linked_user__isnull=False
+    #     ).values_list('linked_user_id', flat=True)
+        
+    #     # Now filter events:
+    #     # 1. All APPROVED events
+    #     # 2. PENDING events with CONNECTED visibility from connected users
+    #     queryset = queryset.filter(
+    #         Q(status='APPROVED') |
+    #         Q(created_by=user) | 
+    #         Q(
+    #             status='PENDING',
+    #             visibility__code='CONNECTED',
+    #             created_by_id__in=connected_user_ids
+    #         )
+    #     ).distinct()
+        
+    #     return queryset.select_related(
+    #         'event_type', 'created_by', 'visibility'
+    #     ).prefetch_related('honorees')
+    
     def get_queryset(self):
         queryset = Event.objects.all()
         user = self.request.user
-        
-        # Admin sees everything
-        if user.is_staff:
+
+        print("USER:", user.mobile_number)
+        print("is_staff:", user.is_staff)
+        print("group:", user.groups.all())
+
+        is_moderator = (
+            user.is_staff or
+            user.groups.filter(name='Moderators').exists() or
+            StaffPermission.objects.filter(
+                user=user,
+                is_active=True,
+                can_manage_event=True
+            ).exists()
+        )
+
+        # Admin / Moderator sees all
+        if is_moderator:
             return queryset.select_related(
                 'event_type', 'created_by', 'visibility'
             ).prefetch_related('honorees')
-        
-        # Get user's person record
+
+        # Users without person record
         try:
             user_person = user.person_record
         except Person.DoesNotExist:
-            # If no person record, only show approved events
-            return queryset.filter(status='APPROVED').select_related(
+
+            # Feed only -> hide own events
+            if self.action == 'list':
+                return queryset.filter(
+                    status='APPROVED'
+                ).exclude(created_by=user).select_related(
+                    'event_type', 'created_by', 'visibility'
+                ).prefetch_related('honorees')
+
+            # Other actions -> allow own events
+            return queryset.filter(
+                Q(status='APPROVED') |
+                Q(created_by=user)
+            ).select_related(
                 'event_type', 'created_by', 'visibility'
             ).prefetch_related('honorees')
-        
-        # Get IDs of all people connected to this user
-        # via confirmed relations
-        connected_person_ids = []
-        
-        # People this user is connected TO (outgoing)
-        outgoing_connections = PersonRelation.objects.filter(
+
+        # Find connected users
+        outgoing = PersonRelation.objects.filter(
             from_person=user_person,
             status='confirmed'
         ).values_list('to_person_id', flat=True)
-        
-        # People connected TO this user (incoming)
-        incoming_connections = PersonRelation.objects.filter(
+
+        incoming = PersonRelation.objects.filter(
             to_person=user_person,
             status='confirmed'
         ).values_list('from_person_id', flat=True)
-        
-        # Combine all connected person IDs
-        connected_person_ids = list(outgoing_connections) + list(incoming_connections)
-        
-        # Get all users linked to these connected persons
+
+        connected_person_ids = list(outgoing) + list(incoming)
+
         connected_user_ids = Person.objects.filter(
             id__in=connected_person_ids,
             linked_user__isnull=False
         ).values_list('linked_user_id', flat=True)
-        
-        # Now filter events:
-        # 1. All APPROVED events
-        # 2. PENDING events with CONNECTED visibility from connected users
-        queryset = queryset.filter(
-            Q(status='APPROVED') |
-            Q(
-                status='PENDING',
-                visibility__code='CONNECTED',
-                created_by_id__in=connected_user_ids
-            )
-        ).distinct()
-        
+
+        # ---------------------------
+        # FEED ONLY
+        # ---------------------------
+        if self.action == 'list':
+            queryset = queryset.filter(
+                Q(status='APPROVED') |
+                Q(
+                    status='PENDING',
+                    visibility__code='CONNECTED',
+                    created_by_id__in=connected_user_ids
+                )
+            ).exclude(created_by=user).distinct()
+
+        # ---------------------------
+        # DETAIL / COMMENTS / RSVP etc
+        # ---------------------------
+        else:
+            queryset = queryset.filter(
+                Q(status='APPROVED') |
+                Q(created_by=user) |
+                Q(
+                    status='PENDING',
+                    visibility__code='CONNECTED',
+                    created_by_id__in=connected_user_ids
+                )
+            ).distinct()
+
         return queryset.select_related(
             'event_type', 'created_by', 'visibility'
         ).prefetch_related('honorees')
@@ -174,6 +273,78 @@ class EventViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
     
+    def perform_create(self, serializer):
+        """Override create to send notifications"""
+        event = serializer.save(created_by=self.request.user)
+        
+        # Get users who should be notified
+        users_to_notify = self._get_users_for_event_notification(event)
+        
+        # Send event creation notifications
+        NotificationService.create_event_notification(
+            event=event,
+            notification_type='event_created',
+            users=users_to_notify,
+            message=f"New event '{event.title}' created by {get_user_display_name(self.request.user)}"
+        )
+    
+    def perform_update(self, serializer):
+        """Override update to send notifications"""
+        old_event = self.get_object()
+        event = serializer.save()
+        
+        # Check if important fields changed
+        important_changes = []
+        if old_event.title != event.title:
+            important_changes.append("title")
+        if old_event.start_date != event.start_date:
+            important_changes.append("start date")
+        if old_event.location_name != event.location_name:
+            important_changes.append("location")
+        
+        if important_changes:
+            users_to_notify = self._get_users_for_event_notification(event)
+            
+            # Send event update notifications
+            NotificationService.create_event_notification(
+                event=event,
+                notification_type='event_updated',
+                users=users_to_notify,
+                message=f"Event '{event.title}' updated: {', '.join(important_changes)}"
+            )
+    
+    def _get_users_for_event_notification(self, event):
+        """Get users who should receive event notifications"""
+        users = set()
+        
+        # Add event creator (if not the current user)
+        if event.created_by != self.request.user:
+            users.add(event.created_by)
+        
+        # Add users who RSVP'd yes/maybe
+        rsvp_users = event.rsvps.filter(
+            response__in=['yes', 'maybe']
+        ).values_list('user', flat=True)
+        users.update(rsvp_users)
+        
+        # Add invited users
+        invited_users = event.invited_users.all()
+        users.update(invited_users)
+        
+        # Add family members if family event
+        if event.honorees.exists():
+            honoree_families = event.honorees.values_list('family', flat=True).distinct()
+            family_users = Person.objects.filter(
+                family_id__in=honoree_families,
+                linked_user__isnull=False
+            ).values_list('linked_user', flat=True)
+            users.update(family_users)
+        
+        # Remove current user
+        users.discard(self.request.user)
+        
+        return list(users)
+    
     # ========== RSVP ACTIONS ==========
     
     @action(detail=True, methods=['post'])
@@ -192,6 +363,18 @@ class EventViewSet(viewsets.ModelViewSet):
                 user=request.user,
                 defaults=serializer.validated_data
             )
+            
+            # Send notification to event creator (if not the current user)
+            if event.created_by != request.user:
+                notification_type = 'rsvp_updated' if not created else 'rsvp_received'
+                message = f"{get_user_display_name(request.user)} {notification_type.replace('_', ' ')} '{rsvp.response}' to your event '{event.title}'"
+                
+                NotificationService.create_event_notification(
+                    event=event,
+                    notification_type=notification_type,
+                    users=[event.created_by],
+                    message=message
+                )
             
             return Response({
                 'status': 'success',
@@ -253,10 +436,20 @@ class EventViewSet(viewsets.ModelViewSet):
         
         serializer = EventMediaSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(
+            media = serializer.save(
                 event=event,
                 uploaded_by=request.user
             )
+            
+            # Send notification to event creator if someone else added media
+            if event.created_by != request.user:
+                NotificationService.create_event_notification(
+                    event=event,
+                    notification_type='event_media_added',
+                    users=[event.created_by],
+                    message=f"{get_user_display_name(request.user)} added media to your event '{event.title}'"
+                )
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -282,7 +475,17 @@ class EventViewSet(viewsets.ModelViewSet):
         )
         
         if serializer.is_valid():
-            serializer.save()
+            comment = serializer.save()
+            
+            # Send notification to event creator if someone else commented
+            if event.created_by != request.user:
+                NotificationService.create_event_notification(
+                    event=event,
+                    notification_type='event_comment',
+                    users=[event.created_by],
+                    message=f"{get_user_display_name(request.user)} commented on your event '{event.title}'"
+                )
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -392,13 +595,10 @@ class EventViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def my_events(self, request):
-        """Get events I created"""
-        events = self.get_queryset().filter(created_by=request.user)
-        serializer = EventListSerializer(
-            events,
-            many=True,
-            context={'request': request}
-        )
+        events = Event.objects.filter(created_by=request.user).select_related(
+            'event_type', 'created_by', 'visibility'
+        ).prefetch_related('honorees')
+        serializer = EventListSerializer(events, many=True, context={'request': request})
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
@@ -517,39 +717,83 @@ class EventViewSet(viewsets.ModelViewSet):
                     'allDay': event.is_all_day,
                     'color': event.visibility.color if event.visibility else '#3788d8'
                 })
-        
-        return Response(calendar_data)
-    
     # ========== ADMIN/MODERATOR ACTIONS ==========
-    
+
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrModerator])
     def moderate(self, request, pk=None):
-        """Approve or reject event"""
+        print(f"DEBUG: Event moderate action called for event {pk}")
+        print(f"DEBUG: Action: {request.data.get('action')}")
+        print(f"DEBUG: User: {request.user}")
+        
         event = self.get_object()
+        print(f"DEBUG: Event found: {event.title} - Status: {event.status}")
+        print(f"DEBUG: Event creator: {event.created_by}")
         
         action = request.data.get('action')
         note = request.data.get('note', '')
         
         if action not in ['approve', 'reject']:
-            return Response(
-                {'error': 'Action must be approve or reject'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Action must be approve or reject'}, status=400)
+        
+        old_status = event.status
+        print(f"DEBUG: Old status: {old_status}")
         
         if action == 'approve':
             event.status = 'APPROVED'
-            message = 'Event approved'
+            # NEW: change visibility to PUBLIC (or a configurable default)
+            public_visibility = VisibilityLevel.objects.get(code='PUBLIC')
+            old_visibility = event.visibility
+            event.visibility = public_visibility
+            message = 'Event approved and made public'
+            
+            # Send notification to event creator
+            if old_status != 'APPROVED':
+                print(f"DEBUG: Creating approval notification...")
+                try:
+                    notifications = NotificationService.create_event_notification(
+                        event=event,
+                        notification_type='event_updated',
+                        users=[event.created_by],
+                        message=f"Admin {get_user_display_name(request.user)} approved your event '{event.title}'",
+                        actor=request.user
+                    )
+                    print(f"DEBUG: Notification created: {len(notifications)} notifications")
+                    if notifications:
+                        for notif in notifications:
+                            print(f"  - Notification ID: {notif.id}, User: {notif.user}")
+                except Exception as e:
+                    print(f"DEBUG: Error creating notification: {e}")
+                    import traceback
+                    traceback.print_exc()
         else:
             event.status = 'REJECTED'
             message = 'Event rejected'
+            
+            # Send notification to event creator
+            if old_status != 'REJECTED':
+                print(f"DEBUG: Creating rejection notification...")
+                try:
+                    notifications = NotificationService.create_event_notification(
+                        event=event,
+                        notification_type='event_updated',
+                        users=[event.created_by],
+                        message=f"Admin {get_user_display_name(request.user)} rejected your event '{event.title}'",
+                        actor=request.user
+                    )
+                    print(f"DEBUG: Notification created: {len(notifications)} notifications")
+                except Exception as e:
+                    print(f"DEBUG: Error creating notification: {e}")
+                    import traceback
+                    traceback.print_exc()
         
         event.moderation_note = note
         event.moderated_by = request.user
         event.moderated_at = timezone.now()
         event.save()
+        print(f"DEBUG: Event saved with new status: {event.status}")
         
         return Response({'message': message})
-    
+
     @action(detail=False, methods=['get'], permission_classes=[IsAdminOrModerator])
     def pending(self, request):
         """Get events pending moderation"""
@@ -657,8 +901,8 @@ class EventConfigViewSet(viewsets.ViewSet):
             )
             
             # Update fields
-            fields = ['can_create_events', 'max_visibility', 'blocked_religions',
-                    'blocked_castes', 'blocked_families', 'restriction_reason']
+            fields = ['can_create_events', 'max_visibility', 'blocked_lifestyles',
+                    'blocked_familyname8s', 'blocked_families', 'restriction_reason']
             
             for field in fields:
                 if field in request.data:

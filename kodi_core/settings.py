@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
-import dj_database_url
+# import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -12,13 +12,17 @@ SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['192.168.1.24','172.20.10.12','kodi-phase2.onrender.com','192.168.1.22','testserver','127.0.0.1']
+ALLOWED_HOSTS = ['192.168.1.13','172.20.10.12','kodi-phase2.onrender.com','192.168.1.22','testserver','127.0.0.1']
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.24:3000",
+    "http://127.0.0.1:3001",
+    "http://192.168.1.13:3001",
+    "http://192.168.1.13:3000",
     ]
+
 
 INSTALLED_APPS = [
         'django.contrib.admin',
@@ -27,7 +31,7 @@ INSTALLED_APPS = [
         'django.contrib.sessions',
         'django.contrib.messages',
         'django.contrib.staticfiles',
-        
+
         # Third party
         'rest_framework',
         'corsheaders',
@@ -45,8 +49,10 @@ INSTALLED_APPS = [
         'apps.event_management',
         'apps.chat',
         'apps.posts',
+        'apps.notifications',
         'admin_app',
         'django_extensions',
+        
     ]
 
 MIDDLEWARE = [
@@ -82,21 +88,23 @@ WSGI_APPLICATION = 'kodi_core.wsgi.application'
 ASGI_APPLICATION = 'kodi_core.asgi.application'
 
     # Database
-# DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.postgresql',
-#             'NAME': config('DB_NAME', default='kodi_db'),
-#             'USER': config('DB_USER', default='myuser'),
-#             'PASSWORD': config('DB_PASSWORD', default='pass123'),
-#             'HOST': config('DB_HOST', default='localhost'),
-#             'PORT': config('DB_PORT', default='5432'),
-#         }
-#     }
-
 DATABASES = {
-    'default': dj_database_url.parse(
-'postgresql://kodi_db_user:Rq6oU5zSuoR3UeDZa1gqRblQyKmpgglV@dpg-d7aeljvkijhs73akico0-a.oregon-postgres.render.com/kodi_db'    )
-}
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='new_kodi_db'),
+            'USER': config('DB_USER', default='myuser'),
+            'PASSWORD': config('DB_PASSWORD', default='pass123'),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+        }
+    }
+
+# DATABASES = {
+#     'default': dj_database_url.parse(
+# 'postgresql://my_new_kodi_db_user:guPrx1vUxbATxuCyYn3ddWX0MX8biu8I@dpg-d7cb7st8nd3s73fjrgpg-a.oregon-postgres.render.com/my_new_kodi_db'    )
+# }
+
+
     # Password validation
 AUTH_PASSWORD_VALIDATORS = [
         {

@@ -28,12 +28,12 @@ urlpatterns = [
     
     path('relation-label-test/', views.RelationLabelTestView.as_view(), name='relation-label-test'),
     path('relation-analytics/', views.RelationAnalyticsView.as_view(), name='relation-analytics'),
-    path('relation-suggest/caste/', RelationAutoSuggestViewSet.as_view({'get': 'caste'}), name='suggest-caste'),
-    path('relation-suggest/family/', RelationAutoSuggestViewSet.as_view({'get': 'family'}), name='suggest-family'),
-    path('relation-suggest/relation/', RelationAutoSuggestViewSet.as_view({'get': 'relation'}), name='suggest-relation'),
-    path('relation-suggest/language/', RelationAutoSuggestViewSet.as_view({'get': 'language'}), name='suggest-language'),
-    path('relation-suggest/religion/', RelationAutoSuggestViewSet.as_view({'get': 'religion'}), name='suggest-religion'),
-    path('relation-suggest/all-fields/', RelationAutoSuggestViewSet.as_view({'get': 'all_fields'}), name='all-fields'),
+    path('relation-suggest/familyname8/', views.RelationAutoSuggestViewSet.as_view({'get': 'familyname8'}), name='suggest-familyname8'),
+    path('relation-suggest/family/', views.RelationAutoSuggestViewSet.as_view({'get': 'family'}), name='suggest-family'),
+    path('relation-suggest/relation/', views.RelationAutoSuggestViewSet.as_view({'get': 'relation'}), name='suggest-relation'),
+    path('relation-suggest/language/', views.RelationAutoSuggestViewSet.as_view({'get': 'language'}), name='suggest-language'),
+    path('relation-suggest/lifestyle/', views.RelationAutoSuggestViewSet.as_view({'get': 'lifestyle'}), name='suggest-lifestyle'),
+    path('relation-suggest/all-fields/', views.RelationAutoSuggestViewSet.as_view({'get': 'all_fields'}), name='all-fields'),
     
     
     

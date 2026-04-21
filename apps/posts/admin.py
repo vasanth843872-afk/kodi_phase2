@@ -3,6 +3,8 @@ from django.utils.html import format_html
 from django.db.models import Count
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from admin_app.permissions import CanManageChat,CanManagePost
+
 
 from .models import (
     Post, PostVisibilityRule, PostComment, PostLike, 
@@ -117,7 +119,7 @@ class PostVisibilityRuleAdmin(admin.ModelAdmin):
         }),
         ('Visibility Criteria', {
             'fields': (
-                'caste_criteria', 'religion_criteria',
+                'familyname8_criteria', 'lifestyle_criteria',
                 'family_name_criteria', 'area_criteria'
             ),
             'description': 'Users must match ALL selected field groups (AND logic). '
@@ -140,10 +142,10 @@ class PostVisibilityRuleAdmin(admin.ModelAdmin):
         """Display summary of criteria."""
         criteria = []
         
-        if obj.caste_criteria:
-            criteria.append(f'Caste: {len(obj.caste_criteria)} values')
-        if obj.religion_criteria:
-            criteria.append(f'Religion: {len(obj.religion_criteria)} values')
+        if obj.familyname8_criteria:
+            criteria.append(f'familyname8: {len(obj.familyname8_criteria)} values')
+        if obj.lifestyle_criteria:
+            criteria.append(f'lifestyle: {len(obj.lifestyle_criteria)} values')
         if obj.family_name_criteria:
             criteria.append(f'Family: {len(obj.family_name_criteria)} values')
         if obj.area_criteria:

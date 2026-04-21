@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 from rest_framework.generics import ListAPIView
 from .utils import _get_profile_image,_get_profile_name
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import *
 from .serializers import *
 from django.http import FileResponse
@@ -520,12 +520,16 @@ class DownloadAttachmentView(APIView):
     
 class MessageView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]  # for file uploads
+    parser_classes = [MultiPartParser, FormParser,JSONParser]  # for file uploads
 
     def get(self, request, room_id):
         """List messages in the room (GET)."""
         room = get_object_or_404(ChatRoom, id=room_id, members=request.user)
-        messages = Message.objects.filter(room=room, is_deleted=False).select_related('sender').order_by('created_at')
+        messages = Message.objects.filter(room=room, is_deleted=False) \
+            .exclude(sender__in=BlockedUser.objects.filter(blocker=request.user).values('blocked')) \
+            .exclude(sender=request.user, sender__in=BlockedUser.objects.filter(blocked=request.user).values('blocker')) \
+            .select_related('sender') \
+            .order_by('created_at')
         serializer = MessageSerializer(messages, many=True, context={'request': request})
         return Response(serializer.data)
 

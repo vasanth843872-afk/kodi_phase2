@@ -150,24 +150,34 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ['status', 'created_at', 'updated_at']
     
     def validate_visibility(self, value):
-        """Enforce max visibility from admin config"""
+        # 1. Replace None with default (CONNECTED)
+        if value is None:
+            try:
+                from .models import VisibilityLevel
+                default_visibility = VisibilityLevel.objects.get(code='CONNECTED')
+                value = default_visibility
+            except VisibilityLevel.DoesNotExist:
+                value = VisibilityLevel.objects.filter(is_enabled=True).first()
+                if not value:
+                    raise serializers.ValidationError("No visibility level available.")
+
+        # 2. Enforce max visibility from admin config (for non-staff users)
         request = self.context.get('request')
-        config = EventConfig.get_config()
-        
         if request and not request.user.is_staff:
-            max_level = config.max_allowed_visibility
+            config = EventConfig.get_config()
+            max_level = config.max_allowed_visibility  # e.g., 'CONNECTED'
             
-            # Check if selected level exceeds max
+            # Compare restrictiveness
             if self._is_more_restrictive(value.code, max_level):
                 raise serializers.ValidationError(
-                    f"Cannot use '{value.name}'. Maximum allowed is {max_level}"
+                    f"Cannot use '{value.name}'. Maximum allowed is {max_level}."
                 )
         
         return value
     
     def _is_more_restrictive(self, level_code, max_level_code):
         """Check if level is more restrictive than max"""
-        hierarchy = ['PUBLIC', 'CONNECTED', 'FAMILY', 'CASTE', 'RELIGION', 'LOCATION', 'PRIVATE']
+        hierarchy = ['PUBLIC', 'CONNECTED', 'FAMILY', 'familyname8', 'lifestyle', 'LOCATION', 'PRIVATE']
         try:
             level_index = hierarchy.index(level_code)
             max_index = hierarchy.index(max_level_code)
@@ -303,23 +313,37 @@ class EventMediaSerializer(serializers.ModelSerializer):
 # ==================== COMMENT SERIALIZERS ====================
 
 class EventCommentSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source='user.username', read_only=True)
+    user_first_name = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = EventComment
         fields = [
-            'id', 'content', 'user', 'user_name',
-            'parent', 'replies', 'created_at'
+            'id',
+            'content',
+            'user',
+            'user_first_name',
+            'parent',
+            'replies',
+            'created_at'
         ]
         read_only_fields = ['user', 'created_at']
-    
+
+    def get_user_first_name(self, obj):
+        if obj.user and hasattr(obj.user, 'profile') and obj.user.profile:
+            return obj.user.profile.firstname or obj.user.username
+        return obj.user.username if obj.user else None
+
     def get_replies(self, obj):
         if obj.parent is None:
-            replies = obj.replies.filter(is_approved=True)
-            return EventCommentSerializer(replies, many=True).data
+            replies = obj.replies.filter(is_approved=True).order_by('created_at')
+            return EventCommentSerializer(
+                replies,
+                many=True,
+                context=self.context
+            ).data
         return []
-    
+
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         validated_data['event'] = self.context['event']

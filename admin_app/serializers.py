@@ -8,8 +8,8 @@ import logging
 
 from apps.relations.models import (
     FixedRelation, 
-    RelationLanguageReligion, 
-    RelationCaste, 
+    RelationLanguagelifestyle, 
+    Relationfamilyname8, 
     RelationFamily, 
     RelationProfileOverride  # ← ADD THIS LINE
 )
@@ -321,6 +321,9 @@ class StaffDetailSerializer(serializers.ModelSerializer):
                     'can_view_users': perm.can_view_users,
                     'can_edit_users': perm.can_edit_users,
                     'can_export_data': perm.can_export_data,
+                    'can_manage_chat': perm.can_manage_chat,
+                    'can_manage_post': perm.can_manage_post,
+                    'can_manage_event': perm.can_manage_event,
                 }
             return {}
         except Exception as e:
@@ -346,6 +349,9 @@ class StaffUpdateSerializer(serializers.Serializer):
     can_view_users = serializers.BooleanField(required=False)
     can_edit_users = serializers.BooleanField(required=False)
     can_export_data = serializers.BooleanField(required=False)
+    can_manage_chat = serializers.BooleanField(required=False)
+    can_manage_post = serializers.BooleanField(required=False)
+    can_manage_event = serializers.BooleanField(required=False)
     
     # ✅ PASSWORD FIELD - Add this
     password = serializers.CharField(required=False, write_only=True, min_length=6)
@@ -424,6 +430,10 @@ class StaffUpdateSerializer(serializers.Serializer):
                     staff_perm.can_edit_users = validated_data['can_edit_users']
                 if 'can_export_data' in validated_data:
                     staff_perm.can_export_data = validated_data['can_export_data']
+                if 'can_manage_chat' in validated_data:
+                    staff_perm.can_manage_chat = validated_data['can_manage_chat']
+                if 'can_manage_post' in validated_data:
+                    staff_perm.can_manage_post = validated_data['can_manage_post']
                 
                 staff_perm.save()
             
@@ -482,6 +492,8 @@ class StaffUpdateSerializer(serializers.Serializer):
                     'can_view_users': staff_perm.can_view_users,
                     'can_edit_users': staff_perm.can_edit_users,
                     'can_export_data': staff_perm.can_export_data,
+                    'can_manage_chat': staff_perm.can_manage_chat,   # ✅ NEW
+                    'can_manage_post': staff_perm.can_manage_post,  # ✅ NEW
                 }
             }
         except Exception as e:
@@ -599,7 +611,7 @@ class AdminPasswordChangeSerializer(serializers.Serializer):
 
 class UserListSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
-    email = serializers.SerializerMethodField()
+    # email = serializers.SerializerMethodField()
     # ✅ FIX: Get is_active directly from User model, not from staff_permissions
     is_active = serializers.BooleanField(read_only=True)  # Remove source parameter
     staff_is_active = serializers.BooleanField(source='staff_permissions.is_active', read_only=True)
@@ -607,7 +619,7 @@ class UserListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'mobile_number', 'email', 'is_active', 'staff_is_active',
+        fields = ['id', 'mobile_number','is_active', 'staff_is_active',
 
                   'is_mobile_verified', 'created_at', 'last_login', 'name']
     
@@ -647,18 +659,18 @@ class DashboardStatsSerializer(serializers.Serializer):
 
 class UserDetailSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
-    email = serializers.SerializerMethodField()
+    # email = serializers.SerializerMethodField()
     profile_info = serializers.SerializerMethodField()
-    user_type = serializers.SerializerMethodField()
-    is_admin_staff = serializers.SerializerMethodField()
+    # user_type = serializers.SerializerMethodField()
+    # is_admin_staff = serializers.SerializerMethodField()
     profile_completion = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
-            'id', 'mobile_number', 'email', 'is_active', 
-            'is_mobile_verified', 'created_at', 'last_login', 
-            'name', 'profile_info', 'user_type', 'is_admin_staff',
+            'id', 'mobile_number', 'is_active', 
+         'created_at', 
+            'name', 'profile_info', 
             'profile_completion'
         ]
         read_only_fields = fields
@@ -704,8 +716,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
                     'gender': profile.gender,
                     'dateofbirth': profile.dateofbirth,
                     'age': profile.age,
-                    'religion': profile.religion,
-                    'caste': profile.caste,
+                    'lifestyle': profile.lifestyle,
+                    'familyname8': profile.familyname8,
                     'present_city': profile.present_city,
                     'state': profile.state,
                     'nationality': profile.nationality,
@@ -748,7 +760,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             required_fields = [
                 'firstname', 'gender', 'preferred_language',
                 'dateofbirth', 'present_city', 'state', 'nationality',
-                'familyname1', 'religion', 'caste'
+                'familyname1', 'lifestyle', 'familyname8'
             ]
             
             total = len(required_fields)
@@ -764,7 +776,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import RelationManagementPermission, RelationAdminActivityLog
-from apps.relations.models import FixedRelation, RelationLanguageReligion, RelationCaste, RelationFamily
+from apps.relations.models import FixedRelation, RelationLanguagelifestyle, Relationfamilyname8, RelationFamily
 from apps.relations.services import RelationLabelService
 
 User = get_user_model()
@@ -822,12 +834,12 @@ class FixedRelationSerializer(serializers.ModelSerializer):
         try:
             return {
                 'family': obj.family_labels.count(),
-                'caste': obj.caste_labels.count(),
-                'language_religion': obj.language_religion_labels.count()
+                'familyname8': obj.familyname8_labels.count(),
+                'language_lifestyle': obj.language_lifestyle_labels.count()
             }
         except Exception as e:
             logger.error(f"Error getting override counts for relation {obj.relation_code}: {str(e)}")
-            return {'family': 0, 'caste': 0, 'language_religion': 0}
+            return {'family': 0, 'familyname8': 0, 'language_lifestyle': 0}
     
     def get_recent_activity(self, obj):
         try:
@@ -857,32 +869,32 @@ class RelationOverrideSerializer(serializers.Serializer):
             logger.error(f"Error validating relation code {value}: {str(e)}")
             raise serializers.ValidationError(f"Error validating relation code: {str(e)}")
 
-class LanguageReligionOverrideSerializer(RelationOverrideSerializer):
-    """Serializer for language+religion overrides."""
-    religion = serializers.CharField(required=True, max_length=100)
+class LanguagelifestyleOverrideSerializer(RelationOverrideSerializer):
+    """Serializer for language+lifestyle overrides."""
+    lifestyle = serializers.CharField(required=True, max_length=100)
     
     class Meta:
-        model = RelationLanguageReligion
-        fields = ['relation_code', 'language', 'religion', 'label']
+        model = RelationLanguagelifestyle
+        fields = ['relation_code', 'language', 'lifestyle', 'label']
 
-class CasteOverrideSerializer(RelationOverrideSerializer):
-    """Serializer for caste overrides."""
-    religion = serializers.CharField(required=True, max_length=100)
-    caste = serializers.CharField(required=True, max_length=100)
+class familyname8OverrideSerializer(RelationOverrideSerializer):
+    """Serializer for familyname8 overrides."""
+    lifestyle = serializers.CharField(required=True, max_length=100)
+    familyname8 = serializers.CharField(required=True, max_length=100)
     
     class Meta:
-        model = RelationCaste
-        fields = ['relation_code', 'language', 'religion', 'caste', 'label']
+        model = Relationfamilyname8
+        fields = ['relation_code', 'language', 'lifestyle', 'familyname8', 'label']
 
 class FamilyOverrideSerializer(RelationOverrideSerializer):
     """Serializer for family overrides."""
-    religion = serializers.CharField(required=True, max_length=100)
-    caste = serializers.CharField(required=True, max_length=100)
+    lifestyle = serializers.CharField(required=True, max_length=100)
+    familyname8 = serializers.CharField(required=True, max_length=100)
     family = serializers.CharField(required=True, max_length=200)
     
     class Meta:
         model = RelationFamily
-        fields = ['relation_code', 'language', 'religion', 'caste', 'family', 'label']
+        fields = ['relation_code', 'language', 'lifestyle', 'familyname8', 'family', 'label']
 
 class BulkOverrideSerializer(serializers.Serializer):
     """Serializer for bulk override operations."""
@@ -891,7 +903,7 @@ class BulkOverrideSerializer(serializers.Serializer):
         required=True
     )
     level = serializers.ChoiceField(
-        choices=['language_religion', 'caste', 'family'],
+        choices=['language_lifestyle', 'familyname8', 'family'],
         required=True
     )
     
@@ -914,23 +926,21 @@ class RelationProfileOverrideSerializer(serializers.ModelSerializer):
     class Meta:
         model = RelationProfileOverride
         fields = [
-            'id', 'relation_code', 'language', 'religion', 'caste', 'family',
+            'id', 'relation_code', 'language', 'lifestyle', 'familyname8', 'family',
             'native', 'present_city', 'taluk', 'district', 'state', 'nationality',
             'label', 'specificity_score', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
     
     
-
-
 class ProfileOverrideCreateSerializer(serializers.Serializer):
     """Serializer for creating/updating profile overrides."""
     relation_code = serializers.CharField(required=True)
     language = serializers.ChoiceField(choices=[('en', 'English'), ('ta', 'Tamil')], default='en')
     
     # All possible override fields (all optional)
-    religion = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
-    caste = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
+    lifestyle = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
+    familyname8 = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
     family = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=200)
     native = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=200)
     present_city = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
@@ -953,14 +963,14 @@ class ProfileOverrideCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         """Ensure at least one override field is provided."""
         override_fields = [
-            'religion', 'caste', 'family', 'native', 'present_city',
+            'lifestyle', 'familyname8', 'family', 'native', 'present_city',
             'taluk', 'district', 'state', 'nationality'
         ]
         has_override = any(attrs.get(field) for field in override_fields)
         
         if not has_override:
             raise serializers.ValidationError(
-                "At least one override field (religion, caste, family, native, present_city, "
+                "At least one override field (lifestyle, familyname8, family, native, present_city, "
                 "taluk, district, state, nationality) must be provided"
             )
         
@@ -971,8 +981,8 @@ class ProfileOverrideSearchSerializer(serializers.Serializer):
     """Serializer for searching profile overrides."""
     relation_code = serializers.CharField(required=False)
     language = serializers.CharField(required=False)
-    religion = serializers.CharField(required=False)
-    caste = serializers.CharField(required=False)
+    lifestyle = serializers.CharField(required=False)
+    familyname8 = serializers.CharField(required=False)
     family = serializers.CharField(required=False)
     native = serializers.CharField(required=False)
     present_city = serializers.CharField(required=False)
@@ -997,8 +1007,8 @@ class RelationLabelTestSerializer(serializers.Serializer):
     """Serializer for testing relation label resolution."""
     relation_code = serializers.CharField(required=True)
     language = serializers.CharField(default='en')
-    religion = serializers.CharField(required=True)
-    caste = serializers.CharField(required=True)
+    lifestyle = serializers.CharField(required=True)
+    familyname8 = serializers.CharField(required=True)
     family = serializers.CharField(required=False, allow_blank=True)
     
     def validate(self, attrs):
@@ -1054,6 +1064,7 @@ class AdminActivityLogSerializer(serializers.ModelSerializer):
         model = AdminActivityLog
         fields = ['id', 'user', 'user_info', 'action', 'description', 
                   'ip_address', 'user_agent', 'created_at']
+        
         read_only_fields = fields
     
     def get_user_info(self, obj):
@@ -1163,3 +1174,13 @@ class UserStatsSerializer(serializers.Serializer):
     filter_applied = serializers.DictField(required=False, allow_null=True)
     recent_users = serializers.ListField(required=False, allow_null=True)  # ✅ ADD THIS
     recent_users_count = serializers.IntegerField(required=False, allow_null=True)  # ✅ ADD THIS
+    
+class UserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['mobile_number', 'email', 'is_active', 'first_name', 'last_name']
+        extra_kwargs = {
+            'mobile_number': {'required': False},
+            'email': {'required': False},
+            'is_active': {'required': False},
+        }

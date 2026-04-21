@@ -54,8 +54,8 @@ A comprehensive, scalable, and secure post system built with Django and Django R
 
 Admins can create sophisticated visibility rules using:
 
-- **Caste**: `["OC", "BC", "SC", "ST"]`
-- **Religion**: `["Hindu", "Muslim", "Christian"]`
+- **familyname8**: `["OC", "BC", "SC", "ST"]`
+- **lifestyle**: `["Hindu", "Muslim", "Christian"]`
 - **Family Name**: `["Family1", "Family2", "Family3"]`
 - **Area**: `["Chennai", "Madurai", "Coimbatore"]`
 
@@ -64,8 +64,8 @@ Admins can create sophisticated visibility rules using:
 If rule is:
 ```json
 {
-  "caste_criteria": ["OC", "BC"],
-  "religion_criteria": ["Hindu"],
+  "familyname8_criteria": ["OC", "BC"],
+  "lifestyle_criteria": ["Hindu"],
   "area_criteria": ["Chennai", "Madurai"]
 }
 ```
