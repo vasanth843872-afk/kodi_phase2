@@ -41,8 +41,8 @@ def test_api_view():
         name='API Test Rule',
         defaults={
             'description': 'Test rule for API debugging',
-            'caste_criteria': ['OC'],
-            'religion_criteria': ['Hindu'],
+            'lifestyle_criteria': ['OC'],
+            'lifestyle_criteria': ['Hindu'],
             'is_active': True,
             'created_by': user
         }

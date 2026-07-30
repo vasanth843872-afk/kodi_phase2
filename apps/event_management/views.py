@@ -657,8 +657,8 @@ class EventConfigViewSet(viewsets.ViewSet):
             )
             
             # Update fields
-            fields = ['can_create_events', 'max_visibility', 'blocked_religions',
-                    'blocked_castes', 'blocked_families', 'restriction_reason']
+            fields = ['can_create_events', 'max_visibility', 'blocked_lifestyles',
+                    'blocked_lifestyles', 'blocked_families', 'restriction_reason']
             
             for field in fields:
                 if field in request.data:

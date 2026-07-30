@@ -38,8 +38,8 @@ def test_post_creation():
         profile = UserProfile.objects.create(
             user=user,
             firstname="Test",
-            caste="OC",
-            religion="Hindu",
+            lifestyle="OC",
+            lifestyle="Hindu",
             present_city="Chennai"
         )
         print(f"Created profile: {profile}")
@@ -49,8 +49,8 @@ def test_post_creation():
         name='Test Rule',
         defaults={
             'description': 'Test rule for debugging',
-            'caste_criteria': ['OC', 'BC'],
-            'religion_criteria': ['Hindu'],
+            'lifestyle_criteria': ['OC', 'BC'],
+            'lifestyle_criteria': ['Hindu'],
             'is_active': True,
             'created_by': user
         }

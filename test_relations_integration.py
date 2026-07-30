@@ -29,7 +29,7 @@ if login_response.status_code == 200:
     data = {
         "relation_code": "MOTHER",
         "language": "ta",
-        "religion": "Hindu",
+        "lifestyle": "Hindu",
         "native": "Karaikudi",
         "present_city": "Chennai",
         "taluk": "Tirupattur",

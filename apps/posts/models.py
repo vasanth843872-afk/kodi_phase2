@@ -122,17 +122,17 @@ class PostVisibilityRule(models.Model):
     description = models.TextField(blank=True)
     
     # Rule criteria - JSON fields for flexible filtering
-    caste_criteria = models.JSONField(
+    lifestyle_criteria = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of caste values (OR logic within field)"
+        help_text="List of lifestyle values (OR logic within field)"
     )
-    religion_criteria = models.JSONField(
+    lifestyle_criteria = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of religion values (OR logic within field)"
+        help_text="List of lifestyle values (OR logic within field)"
     )
-    family_name_criteria = models.JSONField(
+    family_name_2_criteria = models.JSONField(
         default=list,
         blank=True,
         help_text="List of family name values (OR logic within field)"
@@ -176,19 +176,19 @@ class PostVisibilityRule(models.Model):
             return False
         
         # Check each criterion - ALL must match (AND logic)
-        if self.caste_criteria and profile.caste not in self.caste_criteria:
+        if self.lifestyle_criteria and profile.lifestyle not in self.lifestyle_criteria:
             return False
         
-        if self.religion_criteria and profile.religion not in self.religion_criteria:
+        if self.lifestyle_criteria and profile.lifestyle not in self.lifestyle_criteria:
             return False
         
         # Check family names across all family name fields
-        if self.family_name_criteria:
-            family_names = [
+        if self.family_name_2_criteria:
+            family_name_2s = [
                 profile.familyname1, profile.familyname2, profile.familyname3,
                 profile.familyname4, profile.familyname5
             ]
-            if not any(name in self.family_name_criteria for name in family_names if name):
+            if not any(name in self.family_name_2_criteria for name in family_name_2s if name):
                 return False
         
         # Check area criteria across location fields
@@ -205,19 +205,19 @@ class PostVisibilityRule(models.Model):
         
         queryset = UserProfile.objects.all()
         
-        if self.caste_criteria:
-            queryset = queryset.filter(caste__in=self.caste_criteria)
+        if self.lifestyle_criteria:
+            queryset = queryset.filter(lifestyle__in=self.lifestyle_criteria)
         
-        if self.religion_criteria:
-            queryset = queryset.filter(religion__in=self.religion_criteria)
+        if self.lifestyle_criteria:
+            queryset = queryset.filter(lifestyle__in=self.lifestyle_criteria)
         
-        if self.family_name_criteria:
+        if self.family_name_2_criteria:
             queryset = queryset.filter(
-                Q(familyname1__in=self.family_name_criteria) |
-                Q(familyname2__in=self.family_name_criteria) |
-                Q(familyname3__in=self.family_name_criteria) |
-                Q(familyname4__in=self.family_name_criteria) |
-                Q(familyname5__in=self.family_name_criteria)
+                Q(familyname1__in=self.family_name_2_criteria) |
+                Q(familyname2__in=self.family_name_2_criteria) |
+                Q(familyname3__in=self.family_name_2_criteria) |
+                Q(familyname4__in=self.family_name_2_criteria) |
+                Q(familyname5__in=self.family_name_2_criteria)
             )
         
         if self.area_criteria:

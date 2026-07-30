@@ -167,7 +167,7 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
     
     def _is_more_restrictive(self, level_code, max_level_code):
         """Check if level is more restrictive than max"""
-        hierarchy = ['PUBLIC', 'CONNECTED', 'FAMILY', 'CASTE', 'RELIGION', 'LOCATION', 'PRIVATE']
+        hierarchy = ['PUBLIC', 'CONNECTED', 'FAMILY', 'lifestyle', 'lifestyle', 'LOCATION', 'PRIVATE']
         try:
             level_index = hierarchy.index(level_code)
             max_index = hierarchy.index(max_level_code)

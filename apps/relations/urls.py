@@ -4,8 +4,8 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'fixed-relations', views.FixedRelationViewSet, basename='fixed-relation')
-router.register(r'language-religion', views.RelationLanguageReligionViewSet, basename='language-religion')
-router.register(r'caste', views.RelationCasteViewSet, basename='caste')
+router.register(r'language-lifestyle', views.RelationLanguageLifestyleViewSet, basename='language-lifestyle')
+router.register(r'family-name-1', views.RelationFamilyName1ViewSet, basename='family-name-1')
 router.register(r'family', views.RelationFamilyViewSet, basename='family')
 router.register(r'labels', views.RelationLabelViewSet, basename='label')
 

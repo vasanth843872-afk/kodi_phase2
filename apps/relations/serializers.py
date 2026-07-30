@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.db import IntegrityError
 import logging
 from typing import Dict, Any, Optional, List
-from .models import FixedRelation, RelationLanguageReligion, RelationCaste, RelationFamily
+from .models import FixedRelation, RelationLanguageLifestyle, RelationFamilyName1, RelationFamily
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -24,12 +24,12 @@ class BaseRelationSerializer(serializers.ModelSerializer):
                 unique_fields = ['relation']
                 if hasattr(model_class, 'language'):
                     unique_fields.append('language')
-                if hasattr(model_class, 'religion'):
-                    unique_fields.append('religion')
-                if hasattr(model_class, 'caste'):
-                    unique_fields.append('caste')
-                if hasattr(model_class, 'family_name'):
-                    unique_fields.append('family_name')
+                if hasattr(model_class, 'lifestyle'):
+                    unique_fields.append('lifestyle')
+                if hasattr(model_class, 'family_name_1'):
+                    unique_fields.append('family_name_1')
+                if hasattr(model_class, 'family_name_2'):
+                    unique_fields.append('family_name_2')
                 
                 filter_kwargs = {field: attrs.get(field) for field in unique_fields}
                 
@@ -125,9 +125,9 @@ class FixedRelationSerializer(serializers.ModelSerializer):
             
             # Get language from request
             language = 'en'  # default
-            religion = ''
-            caste = ''
-            family = ''
+            lifestyle = ''
+            family_name_1 = ''
+            family_name_2 = ''
             
             if request:
                 # Get language from query param or user profile
@@ -139,22 +139,22 @@ class FixedRelationSerializer(serializers.ModelSerializer):
                         if hasattr(request.user, 'profile'):
                             profile = request.user.profile
                             language = getattr(profile, 'preferred_language', language)
-                            religion = getattr(profile, 'religion', '')
-                            caste = getattr(profile, 'caste', '')
+                            lifestyle = getattr(profile, 'lifestyle', '')
+                            family_name_1 = getattr(profile, 'family_name_1', '')
                             
                             # Get family from user's person record
                             if hasattr(request.user, 'person_record') and request.user.person_record:
                                 if hasattr(request.user.person_record, 'family') and request.user.person_record.family:
-                                    family = request.user.person_record.family.family_name
+                                    family_name_2 = request.user.person_record.family.family_name_2
                     except Exception as e:
                         logger.warning(f"Error getting user profile context: {str(e)}")
             
             # Get localized name with fallback
             return obj.get_localized_name(
                 language=language,
-                religion=religion,
-                caste=caste,
-                family=family
+                lifestyle=lifestyle,
+                family_name_1=family_name_1,
+                family_name_2=family_name_2
             )
             
         except Exception as e:
@@ -176,21 +176,20 @@ class FixedRelationSerializer(serializers.ModelSerializer):
             return {'is_valid': False, 'error': str(e)}
 
 
-class RelationLanguageReligionSerializer(BaseRelationSerializer):
-    """Serializer for RelationLanguageReligion with comprehensive error handling."""
+class RelationLanguageLifestyleSerializer(BaseRelationSerializer):
     
     relation_code = serializers.CharField(source='relation.relation_code', read_only=True)
     default_english = serializers.CharField(source='relation.default_english', read_only=True)
     default_tamil = serializers.CharField(source='relation.default_tamil', read_only=True)
     
     class Meta:
-        model = RelationLanguageReligion
+        model = RelationLanguageLifestyle
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {
             'relation': {'required': True},
             'language': {'required': True, 'max_length': 10},
-            'religion': {'required': True, 'max_length': 100},
+            'lifestyle': {'required': True, 'max_length': 100},
             'label': {'required': True, 'allow_blank': False}
         }
     
@@ -208,10 +207,10 @@ class RelationLanguageReligionSerializer(BaseRelationSerializer):
         
         return value.lower()
     
-    def validate_religion(self, value: str) -> str:
-        """Validate religion."""
+    def validate_lifestyle(self, value: str) -> str:
+        """Validate lifestyle."""
         if not value or not value.strip():
-            raise serializers.ValidationError("Religion cannot be empty.")
+            raise serializers.ValidationError("lifestyle cannot be empty.")
         return value.strip()
     
     def validate_label(self, value: str) -> str:
@@ -221,27 +220,27 @@ class RelationLanguageReligionSerializer(BaseRelationSerializer):
         return value.strip()
 
 
-class RelationCasteSerializer(BaseRelationSerializer):
-    """Serializer for RelationCaste with comprehensive error handling."""
+class RelationFamilyName1Serializer(BaseRelationSerializer):
+    """Serializer for RelationFamilyName1 with comprehensive error handling."""
     
     relation_code = serializers.CharField(source='relation.relation_code', read_only=True)
     default_english = serializers.CharField(source='relation.default_english', read_only=True)
     default_tamil = serializers.CharField(source='relation.default_tamil', read_only=True)
     
     class Meta:
-        model = RelationCaste
+        model = RelationFamilyName1
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {
             'relation': {'required': True},
-            'caste': {'required': True, 'max_length': 100},
+            'family_name_1': {'required': True, 'max_length': 100},
             'label': {'required': True, 'allow_blank': False}
         }
     
-    def validate_caste(self, value: str) -> str:
-        """Validate caste."""
+    def validate_family_name_1(self, value: str) -> str:
+        """Validate family_name_1."""
         if not value or not value.strip():
-            raise serializers.ValidationError("Caste cannot be empty.")
+            raise serializers.ValidationError("lifestyle cannot be empty.")
         return value.strip()
     
     def validate_label(self, value: str) -> str:
@@ -264,12 +263,12 @@ class RelationFamilySerializer(BaseRelationSerializer):
         read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {
             'relation': {'required': True},
-            'family_name': {'required': True, 'max_length': 100},
+            'family_name_2': {'required': True, 'max_length': 100},
             'label': {'required': True, 'allow_blank': False}
         }
     
-    def validate_family_name(self, value: str) -> str:
-        """Validate family name."""
+    def validate_family_name_2(self, value: str) -> str:
+        """Validate family_name_2."""
         if not value or not value.strip():
             raise serializers.ValidationError("Family name cannot be empty.")
         return value.strip()
@@ -286,9 +285,9 @@ class RelationLabelRequestSerializer(serializers.Serializer):
     
     relation_code = serializers.CharField(required=True, max_length=50)
     language = serializers.CharField(required=True, max_length=10)
-    religion = serializers.CharField(required=True, max_length=100)
-    caste = serializers.CharField(required=True, max_length=100)
-    family_name = serializers.CharField(required=False, allow_blank=True, default='')
+    lifestyle = serializers.CharField(required=True, max_length=100)
+    family_name_1 = serializers.CharField(required=True, max_length=100)
+    family_name_2 = serializers.CharField(required=False, allow_blank=True, default='')
     
     def validate_relation_code(self, value: str) -> str:
         """Validate relation code exists."""
@@ -311,23 +310,23 @@ class RelationLabelRequestSerializer(serializers.Serializer):
             )
         return value.lower()
     
-    def validate_religion(self, value: str) -> str:
-        """Validate religion."""
+    def validate_lifestyle(self, value: str) -> str:
+        """Validate lifestyle."""
         if not value or not value.strip():
-            raise serializers.ValidationError("Religion cannot be empty.")
+            raise serializers.ValidationError("lifestyle cannot be empty.")
         return value.strip()
     
-    def validate_caste(self, value: str) -> str:
-        """Validate caste."""
+    def validate_family_name_1(self, value: str) -> str:
+        """Validate family_name_1."""
         if not value or not value.strip():
-            raise serializers.ValidationError("Caste cannot be empty.")
+            raise serializers.ValidationError("lifestyle cannot be empty.")
         return value.strip()
     
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Cross-field validation."""
         try:
             # Check if any combination exists
-            from .models import RelationLanguageReligion, RelationCaste, RelationFamily
+            from .models import RelationLanguageLifestyle, RelationFamilyName1, RelationFamily
             
             relation = FixedRelation.objects.get(relation_code=data['relation_code'])
             
@@ -347,9 +346,9 @@ class BulkRelationLabelsSerializer(serializers.Serializer):
     """Serializer for bulk relation label requests with enhanced validation."""
     
     language = serializers.CharField(required=True, max_length=10)
-    religion = serializers.CharField(required=True, max_length=100)
-    caste = serializers.CharField(required=True, max_length=100)
-    family_name = serializers.CharField(required=False, allow_blank=True, default='')
+    lifestyle = serializers.CharField(required=True, max_length=100)
+    family_name_1 = serializers.CharField(required=True, max_length=100)
+    family_name_2 = serializers.CharField(required=False, allow_blank=True, default='')
     relation_codes = serializers.ListField(
         child=serializers.CharField(max_length=50),
         required=False,
@@ -365,16 +364,16 @@ class BulkRelationLabelsSerializer(serializers.Serializer):
             )
         return value.lower()
     
-    def validate_religion(self, value: str) -> str:
-        """Validate religion."""
+    def validate_lifestyle(self, value: str) -> str:
+        """Validate lifestyle."""
         if not value or not value.strip():
-            raise serializers.ValidationError("Religion cannot be empty.")
+            raise serializers.ValidationError("lifestyle cannot be empty.")
         return value.strip()
     
-    def validate_caste(self, value: str) -> str:
-        """Validate caste."""
+    def validate_family_name_1(self, value: str) -> str:
+        """Validate family_name_1."""
         if not value or not value.strip():
-            raise serializers.ValidationError("Caste cannot be empty.")
+            raise serializers.ValidationError("lifestyle cannot be empty.")
         return value.strip()
     
     def validate_relation_codes(self, value: List[str]) -> List[str]:

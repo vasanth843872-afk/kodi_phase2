@@ -71,8 +71,8 @@ class VisibilityLevel(models.Model):
         ('PUBLIC', '🌍 Public - Everyone'),
         ('CONNECTED', '👥 Connected People Only'),
         ('FAMILY', '👪 Same Family Only'),
-        ('CASTE', '🕉️ Same Caste Only'),
-        ('RELIGION', '⛪ Same Religion Only'),
+        ('lifestyle', '🕉️ Same lifestyle Only'),
+        ('lifestyle', '⛪ Same lifestyle Only'),
         ('LOCATION', '📍 Same Location Only'),
         ('PRIVATE', '🔒 Only Me'),
     )
@@ -119,8 +119,8 @@ class EventConfig(models.Model):
         ('PUBLIC', 'Public (Least restrictive)'),
         ('CONNECTED', 'Connected Only'),
         ('FAMILY', 'Family Only'),
-        ('CASTE', 'Caste Only'),
-        ('RELIGION', 'Religion Only'),
+        ('lifestyle', 'lifestyle Only'),
+        ('lifestyle', 'lifestyle Only'),
         ('LOCATION', 'Location Only'),
         ('PRIVATE', 'Private (Most restrictive)'),
     )
@@ -131,15 +131,15 @@ class EventConfig(models.Model):
     )
     
     # Auto-filters (ON/OFF)
-    enable_religion_filter = models.BooleanField(default=False)
-    enable_caste_filter = models.BooleanField(default=False)
+    enable_lifestyle_filter = models.BooleanField(default=False)
+    enable_lifestyle_filter = models.BooleanField(default=False)
     enable_family_filter = models.BooleanField(default=False)
     enable_location_filter = models.BooleanField(default=False)
     enable_connection_filter = models.BooleanField(default=True)
     
     # Restriction lists
-    blocked_religions = models.JSONField(default=list, blank=True)
-    blocked_castes = models.JSONField(default=list, blank=True)
+    blocked_lifestyles = models.JSONField(default=list, blank=True)
+    blocked_lifestyles = models.JSONField(default=list, blank=True)
     blocked_families = models.JSONField(default=list, blank=True)
     blocked_locations = models.JSONField(default=list, blank=True)
     
@@ -231,8 +231,8 @@ class Event(models.Model):
     )
     
     # Custom targetting
-    target_religions = models.JSONField(default=list, blank=True)
-    target_castes = models.JSONField(default=list, blank=True)
+    target_lifestyles = models.JSONField(default=list, blank=True)
+    target_lifestyles = models.JSONField(default=list, blank=True)
     target_families = models.JSONField(default=list, blank=True)
     target_locations = models.JSONField(default=list, blank=True)
     
@@ -360,12 +360,12 @@ class Event(models.Model):
     def _passes_global_filters(self, profile, config):
         """Check if user passes global filters"""
         
-        # Religion filter
-        if config.blocked_religions and profile.religion in config.blocked_religions:
+        # lifestyle filter
+        if config.blocked_lifestyles and profile.lifestyle in config.blocked_lifestyles:
             return False
         
-        # Caste filter
-        if config.blocked_castes and profile.caste in config.blocked_castes:
+        # lifestyle filter
+        if config.blocked_lifestyles and profile.lifestyle in config.blocked_lifestyles:
             return False
         
         # Family filter
@@ -399,17 +399,17 @@ class Event(models.Model):
                 return True
             return self._same_family(profile)
         
-        # CASTE - same caste
-        if code == 'CASTE':
-            if not config.enable_caste_filter:
+        # lifestyle - same lifestyle
+        if code == 'lifestyle':
+            if not config.enable_lifestyle_filter:
                 return True
-            return self._same_caste(profile)
+            return self._same_lifestyle(profile)
         
-        # RELIGION - same religion
-        if code == 'RELIGION':
-            if not config.enable_religion_filter:
+        # lifestyle - same lifestyle
+        if code == 'lifestyle':
+            if not config.enable_lifestyle_filter:
                 return True
-            return self._same_religion(profile)
+            return self._same_lifestyle(profile)
         
         # LOCATION - same location
         if code == 'LOCATION':
@@ -442,17 +442,17 @@ class Event(models.Model):
             return True
         return profile.familyname1 in self.target_families
     
-    def _same_caste(self, profile):
-        """Check if user has same caste as target"""
-        if not self.target_castes:
+    def _same_lifestyle(self, profile):
+        """Check if user has same lifestyle as target"""
+        if not self.target_lifestyles:
             return True
-        return profile.caste in self.target_castes
+        return profile.lifestyle in self.target_lifestyles
     
-    def _same_religion(self, profile):
-        """Check if user has same religion as target"""
-        if not self.target_religions:
+    def _same_lifestyle(self, profile):
+        """Check if user has same lifestyle as target"""
+        if not self.target_lifestyles:
             return True
-        return profile.religion in self.target_religions
+        return profile.lifestyle in self.target_lifestyles
     
     def _same_location(self, profile):
         """Check if user has same location as target"""
@@ -654,8 +654,8 @@ class UserRestriction(models.Model):
     )
     
     # Block lists
-    blocked_religions = models.JSONField(default=list, blank=True)
-    blocked_castes = models.JSONField(default=list, blank=True)
+    blocked_lifestyles = models.JSONField(default=list, blank=True)
+    blocked_lifestyles = models.JSONField(default=list, blank=True)
     blocked_families = models.JSONField(default=list, blank=True)
     
     # Reason

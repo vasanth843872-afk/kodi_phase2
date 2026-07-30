@@ -3,11 +3,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
-from .models import FixedRelation, RelationLanguageReligion, RelationCaste, RelationFamily
+from .models import FixedRelation, RelationLanguageLifestyle, RelationFamilyName1, RelationFamily
 from .serializers import (
     FixedRelationSerializer,
-    RelationLanguageReligionSerializer,
-    RelationCasteSerializer,
+    RelationLanguageLifestyleSerializer,
+    RelationFamilyName1Serializer,
     RelationFamilySerializer,
     RelationLabelRequestSerializer,
     BulkRelationLabelsSerializer,
@@ -72,46 +72,47 @@ class FixedRelationViewSet(viewsets.ReadOnlyModelViewSet):
             grouped[category].append(option)
         
         return Response(grouped)
-class RelationLanguageReligionViewSet(viewsets.ModelViewSet):
-    """ViewSet for RelationLanguageReligion (admin only)."""
-    queryset = RelationLanguageReligion.objects.all()
-    serializer_class = RelationLanguageReligionSerializer
+
+class RelationLanguageLifestyleViewSet(viewsets.ModelViewSet):
+    """ViewSet for RelationLanguageLifestyle (admin only)."""
+    queryset = RelationLanguageLifestyle.objects.all()
+    serializer_class = RelationLanguageLifestyleSerializer
     permission_classes = [permissions.IsAdminUser]
     
     def get_queryset(self):
-        """Filter by language and/or religion if provided."""
+        """Filter by language and/or lifestyle if provided."""
         queryset = super().get_queryset()
         
         language = self.request.query_params.get('language')
-        religion = self.request.query_params.get('religion')
+        lifestyle = self.request.query_params.get('lifestyle')
         
         if language:
             queryset = queryset.filter(language=language)
-        if religion:
-            queryset = queryset.filter(religion=religion)
+        if lifestyle:
+            queryset = queryset.filter(lifestyle=lifestyle)
         
         return queryset
 
-class RelationCasteViewSet(viewsets.ModelViewSet):
-    """ViewSet for RelationCaste (admin only)."""
-    queryset = RelationCaste.objects.all()
-    serializer_class = RelationCasteSerializer
+class RelationFamilyName1ViewSet(viewsets.ModelViewSet):
+    """ViewSet for RelationFamilyName1 (admin only)."""
+    queryset = RelationFamilyName1.objects.all()
+    serializer_class = RelationFamilyName1Serializer
     permission_classes = [permissions.IsAdminUser]
     
     def get_queryset(self):
-        """Filter by language, religion, and/or caste if provided."""
+        """Filter by language, lifestyle, and/or family_name_1 if provided."""
         queryset = super().get_queryset()
         
         language = self.request.query_params.get('language')
-        religion = self.request.query_params.get('religion')
-        caste = self.request.query_params.get('caste')
+        lifestyle = self.request.query_params.get('lifestyle')
+        family_name_1 = self.request.query_params.get('family_name_1')
         
         if language:
             queryset = queryset.filter(language=language)
-        if religion:
-            queryset = queryset.filter(religion=religion)
-        if caste:
-            queryset = queryset.filter(caste=caste)
+        if lifestyle:
+            queryset = queryset.filter(lifestyle=lifestyle)
+        if family_name_1:
+            queryset = queryset.filter(family_name_1=family_name_1)
         
         return queryset
 
@@ -125,9 +126,9 @@ class RelationFamilyViewSet(viewsets.ModelViewSet):
         """Filter by family name if provided."""
         queryset = super().get_queryset()
         
-        family = self.request.query_params.get('family')
-        if family:
-            queryset = queryset.filter(family=family)
+        family_name_2 = self.request.query_params.get('family_name_2')
+        if family_name_2:
+            queryset = queryset.filter(family_name_2=family_name_2)
         
         return queryset
 
@@ -148,9 +149,9 @@ class RelationLabelViewSet(viewsets.ViewSet):
             label_info = RelationLabelService.get_relation_label(
                 relation_code=data['relation_code'],
                 language=data.get('language') or profile.preferred_language or 'en',
-                religion=data.get('religion') or profile.religion or '',
-                caste=data.get('caste') or profile.caste or '',
-                family_name=data.get('family_name', '')
+                lifestyle=data.get('lifestyle') or profile.lifestyle or '',
+                family_name_1=data.get('family_name_1') or profile.family_name_1 or '',
+                family_name_2=data.get('family_name_2', '')
             )
             
             return Response(label_info)
@@ -174,18 +175,18 @@ class RelationLabelViewSet(viewsets.ViewSet):
                     label_info = RelationLabelService.get_relation_label(
                         relation_code=code,
                         language=data.get('language') or profile.preferred_language or 'en',
-                        religion=data.get('religion') or profile.religion or '',
-                        caste=data.get('caste') or profile.caste or '',
-                        family_name=data.get('family_name', '')
+                        lifestyle=data.get('lifestyle') or profile.lifestyle or '',
+                        family_name_1=data.get('family_name_1') or profile.family_name_1 or '',
+                        family_name_2=data.get('family_name_2', '')
                     )
                     results[code] = label_info['label']
             else:
                 # Get all labels for context
                 results = RelationLabelService.get_all_labels_for_context(
                     language=data.get('language') or profile.preferred_language or 'en',
-                    religion=data.get('religion') or profile.religion or '',
-                    caste=data.get('caste') or profile.caste or '',
-                    family_name=data.get('family_name', '')
+                    lifestyle=data.get('lifestyle') or profile.lifestyle or '',
+                    family_name_1=data.get('family_name_1') or profile.family_name_1 or '',
+                    family_name_2=data.get('family_name_2', '')
                 )
             
             return Response({'labels': results})
@@ -273,13 +274,13 @@ def calculate_relation_from_path(request):
         
         # Build complete context from profile
         auto_context = {
-            # Language & Religion
+            # Language & Lifestyle
             'language': getattr(profile, 'preferred_language', 'ta'),
-            'religion': getattr(profile, 'religion', ''),
+            'lifestyle': getattr(profile, 'lifestyle', ''),
             
-            # Caste & Family
-            'caste': getattr(profile, 'caste', ''),
-            'family_name': getattr(profile, 'familyname1', ''),
+            # Family Name 1 & Family Name 2
+            'family_name_1': getattr(profile, 'family_name_1', ''),
+            'family_name_2': getattr(profile, 'familyname1', ''),
             
             # Location fields - THESE WERE MISSING!
             'native': getattr(profile, 'native', ''),

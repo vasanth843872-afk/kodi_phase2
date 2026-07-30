@@ -8,10 +8,10 @@ import logging
 
 from apps.relations.models import (
     FixedRelation, 
-    RelationLanguageReligion, 
-    RelationCaste, 
+    RelationLanguageLifestyle, 
+    RelationFamilyName1, 
     RelationFamily, 
-    RelationProfileOverride  # ← ADD THIS LINE
+    RelationProfileOverride  
 )
 from apps.relations.services import RelationLabelService
 
@@ -704,8 +704,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
                     'gender': profile.gender,
                     'dateofbirth': profile.dateofbirth,
                     'age': profile.age,
-                    'religion': profile.religion,
-                    'caste': profile.caste,
+                    'lifestyle': profile.lifestyle,
+                    'family_name_1': profile.family_name_1,
                     'present_city': profile.present_city,
                     'state': profile.state,
                     'nationality': profile.nationality,
@@ -748,7 +748,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             required_fields = [
                 'firstname', 'gender', 'preferred_language',
                 'dateofbirth', 'present_city', 'state', 'nationality',
-                'familyname1', 'religion', 'caste'
+                'familyname1', 'lifestyle', 'family_name_1'
             ]
             
             total = len(required_fields)
@@ -764,7 +764,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import RelationManagementPermission, RelationAdminActivityLog
-from apps.relations.models import FixedRelation, RelationLanguageReligion, RelationCaste, RelationFamily
+from apps.relations.models import FixedRelation, RelationLanguageLifestyle, RelationFamilyName1, RelationFamily
 from apps.relations.services import RelationLabelService
 
 User = get_user_model()
@@ -822,12 +822,12 @@ class FixedRelationSerializer(serializers.ModelSerializer):
         try:
             return {
                 'family': obj.family_labels.count(),
-                'caste': obj.caste_labels.count(),
-                'language_religion': obj.language_religion_labels.count()
+                'family_name_1': obj.family_name_1_labels.count(),
+                'language_lifestyle': obj.language_lifestyle_labels.count()
             }
         except Exception as e:
             logger.error(f"Error getting override counts for relation {obj.relation_code}: {str(e)}")
-            return {'family': 0, 'caste': 0, 'language_religion': 0}
+            return {'family': 0, 'family_name_1': 0, 'language_lifestyle': 0}
     
     def get_recent_activity(self, obj):
         try:
@@ -857,32 +857,32 @@ class RelationOverrideSerializer(serializers.Serializer):
             logger.error(f"Error validating relation code {value}: {str(e)}")
             raise serializers.ValidationError(f"Error validating relation code: {str(e)}")
 
-class LanguageReligionOverrideSerializer(RelationOverrideSerializer):
-    """Serializer for language+religion overrides."""
-    religion = serializers.CharField(required=True, max_length=100)
+class LanguagelifestyleOverrideSerializer(RelationOverrideSerializer):
+    """Serializer for language+lifestyle overrides."""
+    lifestyle = serializers.CharField(required=True, max_length=100)
     
     class Meta:
-        model = RelationLanguageReligion
-        fields = ['relation_code', 'language', 'religion', 'label']
+        model = RelationLanguageLifestyle
+        fields = ['relation_code', 'language', 'lifestyle', 'label']
 
-class CasteOverrideSerializer(RelationOverrideSerializer):
-    """Serializer for caste overrides."""
-    religion = serializers.CharField(required=True, max_length=100)
-    caste = serializers.CharField(required=True, max_length=100)
+class lifestyleOverrideSerializer(RelationOverrideSerializer):
+    """Serializer for family_name_1 overrides."""
+    lifestyle = serializers.CharField(required=True, max_length=100)
+    family_name_1 = serializers.CharField(required=True, max_length=100)
     
     class Meta:
-        model = RelationCaste
-        fields = ['relation_code', 'language', 'religion', 'caste', 'label']
+        model = RelationFamilyName1
+        fields = ['relation_code', 'language', 'lifestyle', 'family_name_1', 'label']
 
 class FamilyOverrideSerializer(RelationOverrideSerializer):
     """Serializer for family overrides."""
-    religion = serializers.CharField(required=True, max_length=100)
-    caste = serializers.CharField(required=True, max_length=100)
-    family = serializers.CharField(required=True, max_length=200)
+    lifestyle = serializers.CharField(required=True, max_length=100)
+    family_name_1 = serializers.CharField(required=True, max_length=100)
+    family_name_2 = serializers.CharField(required=True, max_length=200)
     
     class Meta:
         model = RelationFamily
-        fields = ['relation_code', 'language', 'religion', 'caste', 'family', 'label']
+        fields = ['relation_code', 'language', 'lifestyle', 'family_name_1', 'family_name_2', 'label']
 
 class BulkOverrideSerializer(serializers.Serializer):
     """Serializer for bulk override operations."""
@@ -891,7 +891,7 @@ class BulkOverrideSerializer(serializers.Serializer):
         required=True
     )
     level = serializers.ChoiceField(
-        choices=['language_religion', 'caste', 'family'],
+        choices=['language_lifestyle', 'family_name_1', 'family'],
         required=True
     )
     
@@ -914,7 +914,7 @@ class RelationProfileOverrideSerializer(serializers.ModelSerializer):
     class Meta:
         model = RelationProfileOverride
         fields = [
-            'id', 'relation_code', 'language', 'religion', 'caste', 'family',
+            'id', 'relation_code', 'language', 'lifestyle', 'family_name_1', 'family_name_2',
             'native', 'present_city', 'taluk', 'district', 'state', 'nationality',
             'label', 'specificity_score', 'created_at', 'updated_at'
         ]
@@ -929,9 +929,9 @@ class ProfileOverrideCreateSerializer(serializers.Serializer):
     language = serializers.ChoiceField(choices=[('en', 'English'), ('ta', 'Tamil')], default='en')
     
     # All possible override fields (all optional)
-    religion = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
-    caste = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
-    family = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=200)
+    lifestyle = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
+    family_name_1 = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
+    family_name_2 = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=200)
     native = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=200)
     present_city = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
     taluk = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=100)
@@ -953,14 +953,17 @@ class ProfileOverrideCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         """Ensure at least one override field is provided."""
         override_fields = [
-            'religion', 'caste', 'family', 'native', 'present_city',
+            'lifestyle', 'family_name_1', 'family_name_2', 'native', 'present_city',
             'taluk', 'district', 'state', 'nationality'
         ]
         has_override = any(attrs.get(field) for field in override_fields)
         
         if not has_override:
             raise serializers.ValidationError(
-                "At least one override field (religion, caste, family, native, present_city, "
+                "At least one of the following override fields must be provided: "
+                "lifestyle, family_name_1, family_name_2, native, present_city, "
+                "taluk, district, state, nationality"
+                "At least one override field (lifestyle, lifestyle, family, native, present_city, "
                 "taluk, district, state, nationality) must be provided"
             )
         
@@ -971,9 +974,9 @@ class ProfileOverrideSearchSerializer(serializers.Serializer):
     """Serializer for searching profile overrides."""
     relation_code = serializers.CharField(required=False)
     language = serializers.CharField(required=False)
-    religion = serializers.CharField(required=False)
-    caste = serializers.CharField(required=False)
-    family = serializers.CharField(required=False)
+    lifestyle = serializers.CharField(required=False)
+    family_name_1 = serializers.CharField(required=False)
+    family_name_2 = serializers.CharField(required=False)
     native = serializers.CharField(required=False)
     present_city = serializers.CharField(required=False)
     taluk = serializers.CharField(required=False)
@@ -997,9 +1000,9 @@ class RelationLabelTestSerializer(serializers.Serializer):
     """Serializer for testing relation label resolution."""
     relation_code = serializers.CharField(required=True)
     language = serializers.CharField(default='en')
-    religion = serializers.CharField(required=True)
-    caste = serializers.CharField(required=True)
-    family = serializers.CharField(required=False, allow_blank=True)
+    lifestyle = serializers.CharField(required=True)
+    family_name_1 = serializers.CharField(required=True)
+    family_name_2 = serializers.CharField(required=False, allow_blank=True)
     
     def validate(self, attrs):
         try:

@@ -382,9 +382,9 @@ class PersonViewSet(viewsets.ModelViewSet):
             result = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=language,
-                religion=getattr(user_profile, 'religion', '') if user_profile else '',
-                caste=getattr(user_profile, 'caste', '') if user_profile else '',
-                family_name=viewer_person.family.family_name if viewer_person.family else '',
+                lifestyle=getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                family_name_1=getattr(user_profile, 'family_name_1', '') if user_profile else '',
+                family_name_2=viewer_person.family.family_name_2 if viewer_person.family else '',
                 native=getattr(user_profile, 'native', '') if user_profile else '',
                 present_city=getattr(user_profile, 'present_city', '') if user_profile else '',
                 taluk=getattr(user_profile, 'taluk', '') if user_profile else '',
@@ -1745,9 +1745,9 @@ class PersonViewSet(viewsets.ModelViewSet):
         
         profile_context = {
             'language': language,
-            'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-            'caste': getattr(user_profile, 'caste', '') if user_profile else '',
-            'family': person.family.family_name if person.family else '',
+            'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+            'family_name_1': getattr(user_profile, 'family_name_1', '') if user_profile else '',
+            'family': person.family.family_name_2 if person.family else '',
             'native': getattr(user_profile, 'native', '') if user_profile else '',
             'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
             'taluk': getattr(user_profile, 'taluk', '') if user_profile else '',
@@ -1783,9 +1783,9 @@ class PersonViewSet(viewsets.ModelViewSet):
         filter_context = {
             'relation': fixed_relation,
             'language': language,
-            'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-            'caste': getattr(user_profile, 'caste', '') if user_profile else '',
-            'family': person.family.family_name if person.family else '',
+            'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+            'family_name_1': getattr(user_profile, 'family_name_1', '') if user_profile else '',
+            'family': person.family.family_name_2 if person.family else '',
             'native': getattr(user_profile, 'native', '') if user_profile else '',
             'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
             'taluk': getattr(user_profile, 'taluk', '') if user_profile else '',
@@ -2078,7 +2078,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                     label_result = self._get_relation_label_with_context(
                         relation_code=relation_to_center,
                         user_profile=user_profile,
-                        family_name=person.family.family_name if person.family else ''
+                        family_name_2=person.family.family_name_2 if person.family else ''
                     )
                     person_data = PersonSerializer(person_obj, context={'request': request}).data
                     person_data['mobile_number'] = person_obj.linked_user.mobile_number if person_obj.linked_user else None
@@ -2095,7 +2095,7 @@ class PersonViewSet(viewsets.ModelViewSet):
             center_person_label = self._get_relation_label_with_context(
                 relation_code='SELF',
                 user_profile=user_profile,
-                family_name=person.family.family_name if person.family else ''
+                family_name_2=person.family.family_name_2 if person.family else ''
             )
             
             return Response({
@@ -2323,7 +2323,7 @@ class PersonViewSet(viewsets.ModelViewSet):
     
     
     
-    def _get_relation_label_with_context(self, relation_code: str, user_profile, family_name: str = '') -> Dict:
+    def _get_relation_label_with_context(self, relation_code: str, user_profile, family_name_2: str = '') -> Dict:
         """
         Get relation label using the correct parameters for RelationLabelService.
         Based on your working example, it expects these parameters.
@@ -2334,9 +2334,9 @@ class PersonViewSet(viewsets.ModelViewSet):
             # Prepare context based on your working example
             context = {
                 'language': getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-                'caste': getattr(user_profile, 'caste', '') if user_profile else '',
-                'family_name': family_name,
+                'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                'family_name_1': getattr(user_profile, 'family_name_1', '') if user_profile else '',
+                'family_name_2': family_name_2,
                 'native': getattr(user_profile, 'native', '') if user_profile else '',
                 'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
                 'taluk': getattr(user_profile, 'taluk', '') if user_profile else '',
@@ -2350,9 +2350,9 @@ class PersonViewSet(viewsets.ModelViewSet):
             result = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=context['language'],
-                religion=context['religion'],
-                caste=context['caste'],
-                family_name=context['family_name'],
+                lifestyle=context['lifestyle'],
+                family_name_1=context['family_name_1'],
+                family_name_2=context['family_name_2'],
                 native=context['native'],
                 present_city=context['present_city'],
                 taluk=context['taluk'],
@@ -2376,9 +2376,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                     "label_source": "standard",
                     "label_metadata": {
                         "language": context['language'],
-                        "religion": context['religion'],
-                        "caste": context['caste'],
-                        "family": context['family_name'],
+                        "lifestyle": context['lifestyle'],
+                        "family_name_1": context['family_name_1'],
+                        "family_name_2": context['family_name_2'],
                         "native": context['native'],
                         "present_city": context['present_city'],
                         "taluk": context['taluk'],
@@ -2418,9 +2418,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                 if 'label_metadata' not in result:
                     result['label_metadata'] = {
                         "language": context['language'],
-                        "religion": context['religion'],
-                        "caste": context['caste'],
-                        "family": context['family_name'],
+                        "lifestyle": context['lifestyle'],
+                        "family_name_1": context['family_name_1'],
+                        "family_name_2": context['family_name_2'],
                         "native": context['native'],
                         "present_city": context['present_city'],
                         "taluk": context['taluk'],
@@ -2445,9 +2445,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                 "label_source": "standard",
                 "label_metadata": {
                     "language": context['language'],
-                    "religion": context['religion'],
-                    "caste": context['caste'],
-                    "family": context['family_name'],
+                    "lifestyle": context['lifestyle'],
+                    "family_name_1": context['family_name_1'],
+                    "family_name_2": context['family_name_2'],
                     "native": context['native'],
                     "present_city": context['present_city'],
                     "taluk": context['taluk'],
@@ -2478,9 +2478,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                 "label_source": "error",
                 "label_metadata": {
                     "language": getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                    "religion": getattr(user_profile, 'religion', '') if user_profile else '',
-                    "caste": getattr(user_profile, 'caste', '') if user_profile else '',
-                    "family": family_name,
+                    "lifestyle": getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                    "family_name_1": getattr(user_profile, 'family_name_1', '') if user_profile else '',
+                    "family_name_2": family_name_2,
                     "native": getattr(user_profile, 'native', '') if user_profile else '',
                     "present_city": getattr(user_profile, 'present_city', '') if user_profile else '',
                     "taluk": getattr(user_profile, 'taluk', '') if user_profile else '',
@@ -3759,7 +3759,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                 person_exists = Person.objects.get(id=pk)
                 # print(f"Person with ID {pk} EXISTS in database: {person_exists.full_name}")
                 # print(f"  - Family ID: {person_exists.family_id}")
-                # print(f"  - Family name: {person_exists.family.family_name if person_exists.family else 'None'}")
+                # print(f"  - Family name: {person_exists.family.family_name_2 if person_exists.family else 'None'}")
                 # print(f"  - Linked user: {person_exists.linked_user_id}")
                 # print(f"  - Gender: {person_exists.gender}")
                 # print(f"  - Is placeholder: {person_exists.is_placeholder}")
@@ -4452,7 +4452,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                 },
                 'person': PersonSerializer(person, context={'request': request}).data,
                 'family_info': {
-                    'family_name': person.family.family_name if person.family else None,
+                    'family_name_2': person.family.family_name_2 if person.family else None,
                     'family_id': person.family_id,
                     'member_count': family_members.count() + 1
                 },
@@ -4924,8 +4924,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                         label = RelationLabelService.get_relation_label(
                             relation_code=relation_code,
                             language=language,
-                            religion=getattr(request.user.profile, 'religion', ''),
-                            caste=getattr(request.user.profile, 'caste', '')
+                            lifestyle=getattr(request.user.profile, 'lifestyle', ''),
+                            family_name_1=getattr(request.user.profile, 'family_name_1', ''),
+                            family_name_2=getattr(request.user.profile, 'family_name_2', '')
                         )["label"]
                     
                     member_data = PersonSerializer(
@@ -4968,7 +4969,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                 },
                 'person': PersonSerializer(person, context={'request': request}).data,
                 'family_info': {
-                    'family_name': person.family.family_name if person.family else None,
+                    'family_name_2': person.family.family_name_2 if person.family else None,
                     'family_id': person.family_id,
                     'member_count': family_members.count() + 1,
                     'viewer_family_match': person.family_id == user_person.family_id
@@ -5039,7 +5040,7 @@ class PersonViewSet(viewsets.ModelViewSet):
             family = Family.objects.filter(created_by=user).first()
             if not family:
                 family = Family.objects.create(
-                    family_name=f"{user.mobile_number}'s Family",
+                    family_name_2=f"{user.mobile_number}'s Family",
                     created_by=user
                 )
             
@@ -5255,7 +5256,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                     current_person=current_person,
                     other_person=person,
                     user_profile=user_profile,
-                    family_name=current_person.family.family_name if current_person.family else ''
+                    family_name_2=current_person.family.family_name_2 if current_person.family else ''
                 )
                 
                 # Get public profile summary
@@ -5271,7 +5272,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                         'label': relation_info.get('label', 'Connected')
                     },
                     'relation_label': relation_info.get('label', 'Connected'),
-                    'family_name': person.family.family_name if person.family else None,
+                    'family_name_2': person.family.family_name_2 if person.family else None,
                     'family_id': person.family_id,
                     'is_placeholder': person.is_placeholder,  # Should be False for linked users
                     'age': person.get_age() if hasattr(person, 'get_age') else None,
@@ -5293,7 +5294,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                         current_person=current_person,
                         other_person=current_person,
                         user_profile=user_profile,
-                        family_name=current_person.family.family_name if current_person.family else ''
+                        family_name_2=current_person.family.family_name_2 if current_person.family else ''
                     )
                     
                     public_profile = self._get_public_profile_summary(current_person)
@@ -5470,7 +5471,7 @@ class PersonViewSet(viewsets.ModelViewSet):
         return None
 
 
-    def _get_search_relation_label(self, current_person: Person, other_person: Person, user_profile, family_name: str) -> Dict:
+    def _get_search_relation_label(self, current_person: Person, other_person: Person, user_profile, family_name_2: str) -> Dict:
         """Get proper relation label for search results."""
         try:
             from apps.relations.services import RelationLabelService
@@ -5513,9 +5514,9 @@ class PersonViewSet(viewsets.ModelViewSet):
                     label_result = RelationLabelService.get_relation_label(
                         relation_code=relation_code,
                         language=getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                        religion=getattr(user_profile, 'religion', '') if user_profile else '',
-                        caste=getattr(user_profile, 'caste', '') if user_profile else '',
-                        family_name=family_name,
+                        lifestyle=getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                        family_name_1=getattr(user_profile, 'family_name_1', '') if user_profile else '',
+                        family_name_2=family_name_2,
                         native=getattr(user_profile, 'native', '') if user_profile else '',
                         present_city=getattr(user_profile, 'present_city', '') if user_profile else '',
                         taluk=getattr(user_profile, 'taluk', '') if user_profile else '',
@@ -5775,7 +5776,7 @@ class PersonViewSet(viewsets.ModelViewSet):
                 'contact_info': self._get_contact_info(person),
                 'family_info': {
                     'family_id': person.family_id,
-                    'family_name': person.family.family_name if person.family else None,
+                    'family_name_2': person.family.family_name_2 if person.family else None,
                     'member_count': Person.objects.filter(family=person.family).count() if person.family else 0
                 },
                 'relation_to_me': self._get_relation_to_current(current_person, person),
@@ -8633,9 +8634,9 @@ class RelationCategoryDrillDownView(APIView):
         label_info = RelationLabelService.get_relation_label(
             relation_code=relation_code,
             language=lang,
-            religion=getattr(profile, 'religion', None) if profile else None,
-            caste=getattr(profile, 'caste', None) if profile else None,
-            family_name=getattr(profile, 'familyname1', None) if profile else None,
+            lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+            family_name_1=getattr(profile, 'family_name_1', None) if profile else None,
+            family_name_2=getattr(profile, 'familyname1', None) if profile else None,
             native=getattr(profile, 'native', None) if profile else None,
             present_city=getattr(profile, 'present_city', None) if profile else None,
             taluk=getattr(profile, 'taluk', None) if profile else None,
@@ -8655,9 +8656,9 @@ class RelationCategoryDrillDownView(APIView):
             label_info = RelationLabelService.get_relation_label(
                 relation_code=category_code,
                 language=lang,
-                religion=getattr(profile, 'religion', None) if profile else None,
-                caste=getattr(profile, 'caste', None) if profile else None,
-                family_name=getattr(profile, 'familyname1', None) if profile else None,
+                lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+                family_name_1=getattr(profile, 'family_name_1', None) if profile else None,
+                family_name_2=getattr(profile, 'familyname1', None) if profile else None,
             )
             return label_info['label']
         except Exception:
@@ -8797,9 +8798,9 @@ class ConnectedPeoplesDashboardView(APIView):
         profile = getattr(user, 'profile', None)
         context = {
             'language': getattr(profile, 'preferred_language', 'ta') if profile else 'ta',
-            'religion': getattr(profile, 'religion', None) if profile else None,
-            'caste': getattr(profile, 'caste', None) if profile else None,
-            'family_name': getattr(profile, 'familyname1', None) if profile else None,
+            'lifestyle': getattr(profile, 'lifestyle', None) if profile else None,
+            'family_name_1': getattr(profile, 'family_name_1', None) if profile else None,
+            'family_name_2': getattr(profile, 'familyname1', None) if profile else None,
             'native': getattr(profile, 'native', None) if profile else None,
             'present_city': getattr(profile, 'present_city', None) if profile else None,
             'taluk': getattr(profile, 'taluk', None) if profile else None,
@@ -8959,9 +8960,9 @@ class ConnectedPeoplesDashboardView(APIView):
             label_info = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=lang,
-                religion=getattr(profile, 'religion', None) if profile else None,
-                caste=getattr(profile, 'caste', None) if profile else None,
-                family_name=getattr(profile, 'familyname1', None) if profile else None,
+                lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+                family_name_1=getattr(profile, 'family_name_1', None) if profile else None,
+                family_name_2=getattr(profile, 'familyname1', None) if profile else None,
             )
             return label_info['label']
         except Exception:
@@ -8974,9 +8975,9 @@ class ConnectedPeoplesDashboardView(APIView):
             label_info = RelationLabelService.get_relation_label(
                 relation_code=category_code,
                 language=lang,
-                religion=getattr(profile, 'religion', None) if profile else None,
-                caste=getattr(profile, 'caste', None) if profile else None,
-                family_name=getattr(profile, 'familyname1', None) if profile else None,
+                lifestyle=getattr(profile, 'lifestyle', None) if profile else None,
+                family_name_1=getattr(profile, 'family_name_1', None) if profile else None,
+                family_name_2=getattr(profile, 'familyname1', None) if profile else None,
             )
             return label_info['label']
         except Exception:
@@ -9230,9 +9231,9 @@ class FindRelationBetweenPeople(APIView):
             return {}
         return {
             'language': getattr(profile, 'preferred_language', 'en'),
-            'religion': getattr(profile, 'religion', ''),
-            'caste': getattr(profile, 'caste', ''),
-            'family_name': getattr(profile, 'familyname1', ''),
+            'lifestyle': getattr(profile, 'lifestyle', ''),
+            'family_name_1': getattr(profile, 'family_name_1', ''),
+            'family_name_2': getattr(profile, 'familyname1', ''),
             'native': getattr(profile, 'native', ''),
             'present_city': getattr(profile, 'present_city', ''),
             'taluk': getattr(profile, 'taluk', ''),
@@ -9247,9 +9248,9 @@ class FindRelationBetweenPeople(APIView):
             result = RelationLabelService.get_relation_label(
                 relation_code=relation_code,
                 language=context.get('language', 'en'),
-                religion=context.get('religion', ''),
-                caste=context.get('caste', ''),
-                family_name=context.get('family_name', ''),
+                lifestyle=context.get('lifestyle', ''),
+                family_name_1=context.get('family_name_1', ''),
+                family_name_2=context.get('family_name_2', ''),
                 native=context.get('native', ''),
                 present_city=context.get('present_city', ''),
                 taluk=context.get('taluk', ''),

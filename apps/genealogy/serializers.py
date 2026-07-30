@@ -428,9 +428,9 @@ class PersonSerializer(serializers.ModelSerializer, BaseSerializerMixin):
                 logger.debug(f"Assigned family {user_person.family.id} from user's person")
             else:
                 # Create default family
-                family_name = f"{request.user.mobile_number}'s Family" if request.user.mobile_number else "My Family"
+                family_name_2 = f"{request.user.mobile_number}'s Family" if request.user.mobile_number else "My Family"
                 family = Family.objects.create(
-                    family_name=family_name,
+                    family_name_2=family_name_2,
                     created_by=request.user
                 )
                 validated_data['family'] = family
@@ -1528,7 +1528,7 @@ class ConnectedPersonSuggestionSerializer(serializers.Serializer):
     gender = serializers.CharField()
     relation_to_me = serializers.SerializerMethodField()
     relation_label = serializers.SerializerMethodField()
-    family_name = serializers.SerializerMethodField()
+    family_name_2 = serializers.SerializerMethodField()
     profile_picture = serializers.SerializerMethodField()
     is_placeholder = serializers.BooleanField()
     age = serializers.SerializerMethodField()
@@ -1613,9 +1613,9 @@ class ConnectedPersonSuggestionSerializer(serializers.Serializer):
         relation = self.get_relation_to_me(obj)
         return relation.get('label', 'Family Member')
     
-    def get_family_name(self, obj):
+    def get_family_name_2(self, obj):
         """Get family name."""
-        return obj.family.family_name if obj.family else None
+        return obj.family.family_name_2 if obj.family else None
     
     def get_profile_picture(self, obj):
         """Get profile picture URL if available."""
@@ -1678,9 +1678,9 @@ class InvitationListSerializer(serializers.ModelSerializer):
             # Prepare context based on recipient's profile
             context = {
                 'language': getattr(user_profile, 'preferred_language', 'en') if user_profile else 'en',
-                'religion': getattr(user_profile, 'religion', '') if user_profile else '',
-                'caste': getattr(user_profile, 'caste', '') if user_profile else '',
-                'family_name': obj.person.family.family_name if obj.person.family else '',
+                'lifestyle': getattr(user_profile, 'lifestyle', '') if user_profile else '',
+                'family_name_1': getattr(user_profile, 'family_name_1', '') if user_profile else '',
+                'family_name_2': obj.person.family.family_name_2 if obj.person.family else '',
                 'native': getattr(user_profile, 'native', '') if user_profile else '',
                 'present_city': getattr(user_profile, 'present_city', '') if user_profile else '',
                 'taluk': getattr(user_profile, 'taluk', '') if user_profile else '',
@@ -1693,9 +1693,9 @@ class InvitationListSerializer(serializers.ModelSerializer):
             result = RelationLabelService.get_relation_label(
                 relation_code=obj.original_relation.relation_code,
                 language=context['language'],
-                religion=context['religion'],
-                caste=context['caste'],
-                family_name=context['family_name'],
+                lifestyle=context['lifestyle'],
+                family_name_1=context['family_name_1'],
+                family_name_2=context['family_name_2'],
                 native=context['native'],
                 present_city=context['present_city'],
                 taluk=context['taluk'],

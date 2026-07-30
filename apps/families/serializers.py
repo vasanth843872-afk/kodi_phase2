@@ -14,7 +14,7 @@ class FamilySerializer(serializers.ModelSerializer):
     class Meta:
         model = Family
         fields = [
-            'id', 'family_name', 'description', 'is_locked',
+            'id', 'family_name_2', 'description', 'is_locked',
             'created_by', 'created_by_name', 'members_count',
             'created_at', 'updated_at'
         ]
@@ -66,13 +66,13 @@ class FamilyDetailSerializer(FamilySerializer):
 class FamilyInvitationSerializer(serializers.ModelSerializer):
     """Serializer for family invitations."""
     
-    family_name = serializers.CharField(source='family.family_name', read_only=True)
+    family_name_2 = serializers.CharField(source='family.family_name_2', read_only=True)
     inviter_mobile = serializers.CharField(source='inviter.mobile_number', read_only=True)
     
     class Meta:
         model = FamilyInvitation
         fields = [
-            'id', 'family', 'family_name', 'inviter', 'inviter_mobile',
+            'id', 'family', 'family_name_2', 'inviter', 'inviter_mobile',
             'invitee_mobile', 'invitee_user', 'status',
             'created_at', 'expires_at'
         ]

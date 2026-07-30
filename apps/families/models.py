@@ -4,7 +4,7 @@ from django.conf import settings
 class Family(models.Model):
     """Family model for grouping related persons."""
     
-    family_name = models.CharField(max_length=200, db_index=True,null=True,blank=True,default="My family")
+    family_name_2 = models.CharField(max_length=200, db_index=True,null=True,blank=True,default="My family")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -21,12 +21,12 @@ class Family(models.Model):
         db_table = 'families'
         verbose_name_plural = 'Families'
         indexes = [
-            models.Index(fields=['family_name']),
+            models.Index(fields=['family_name_2']),
             models.Index(fields=['created_by', 'created_at']),
         ]
     
     def __str__(self):
-        return self.family_name
+        return self.family_name_2
     
     def get_members_count(self):
         """Return count of persons in this family."""
@@ -44,8 +44,8 @@ class Family(models.Model):
     @property
     def display_name(self):
         """Smart display name."""
-        if self.family_name and self.family_name.strip():
-            return self.family_name.strip()
+        if self.family_name_2 and self.family_name_2.strip():
+            return self.family_name_2.strip()
         
         # Default to creator's name
         if self.created_by and hasattr(self.created_by, 'profile'):
@@ -95,7 +95,7 @@ class FamilyInvitation(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.family.family_name} - {self.invitee_mobile}"
+        return f"{self.family.family_name_2} - {self.invitee_mobile}"
     
     def is_expired(self):
         """Check if invitation is expired."""

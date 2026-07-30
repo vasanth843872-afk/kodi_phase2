@@ -12,12 +12,13 @@ SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-ALLOWED_HOSTS = ['192.168.1.24','172.20.10.12','kodi-phase2.onrender.com','192.168.1.22','testserver','127.0.0.1']
+ALLOWED_HOSTS = ['192.168.1.43','172.20.10.12','kodi-phase2.onrender.com','192.168.1.22','testserver','127.0.0.1']
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.24:3000",
+    "http://192.168.1.43:3001",
+    "http://192.168.1.43:3000",
     ]
 
 INSTALLED_APPS = [
@@ -95,7 +96,7 @@ ASGI_APPLICATION = 'kodi_core.asgi.application'
 
 DATABASES = {
     'default': dj_database_url.parse(
-'postgresql://kodi_db_user:Rq6oU5zSuoR3UeDZa1gqRblQyKmpgglV@dpg-d7aeljvkijhs73akico0-a.oregon-postgres.render.com/kodi_db'    )
+'postgresql://django_3rsz_user:QzgFY0n5nF2j8l06QHRzNQDWkesw7JnP@dpg-d9llnnid0e5s73cptrig-a.oregon-postgres.render.com/django_3rsz')
 }
     # Password validation
 AUTH_PASSWORD_VALIDATORS = [

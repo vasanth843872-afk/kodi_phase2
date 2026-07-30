@@ -34,8 +34,8 @@ def test_serializer():
         name='Test Rule for Debug',
         defaults={
             'description': 'Test rule for debugging',
-            'caste_criteria': ['OC'],
-            'religion_criteria': ['Hindu'],
+            'lifestyle_criteria': ['OC'],
+            'lifestyle_criteria': ['Hindu'],
             'is_active': True,
             'created_by': user
         }

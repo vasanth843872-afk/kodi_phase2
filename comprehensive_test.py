@@ -75,8 +75,8 @@ def test_all_logic():
     # Test visibility rule eligibility
     if rule:
         print(f"✅ Rule: {rule.name}")
-        print(f"  - Caste criteria: {rule.caste_criteria}")
-        print(f"  - Religion criteria: {rule.religion_criteria}")
+        print(f"  - lifestyle criteria: {rule.lifestyle_criteria}")
+        print(f"  - lifestyle criteria: {rule.lifestyle_criteria}")
         print(f"  - Area criteria: {rule.area_criteria}")
         
         is_eligible = rule.is_user_eligible(user)

@@ -88,7 +88,7 @@ class Person(models.Model):
     
     def __str__(self):
         status = "User" if self.linked_user else "Placeholder"
-        return f"{self.full_name} ({status}) - {self.family.family_name}"
+        return f"{self.full_name} ({status}) - {self.family.family_name_2}"
     
     def clean(self):
         """Validate person data."""
@@ -375,16 +375,16 @@ class PersonRelation(models.Model):
         
         # Use default values if profiles not available
         language = language or (from_profile.get('preferred_language') if from_profile else 'en')
-        religion = (from_profile.get('religion') if from_profile else '') or (to_profile.get('religion') if to_profile else '')
-        caste = (from_profile.get('caste') if from_profile else '') or (to_profile.get('caste') if to_profile else '')
-        family_name = self.from_person.family.family_name
+        family_name_1 = (from_profile.get('family_name_1') if from_profile else '') or (to_profile.get('family_name_1') if to_profile else '')
+        lifestyle = (from_profile.get('lifestyle') if from_profile else '') or (to_profile.get('lifestyle') if to_profile else '')
+        family_name_2 = self.from_person.family.family_name_2
         
         return RelationLabelService.get_relation_label(
             relation_code=self.relation.relation_code,
             language=language,
-            religion=religion,
-            caste=caste,
-            family_name=family_name
+            family_name_1=family_name_1,
+            lifestyle=lifestyle,
+            family_name_2=family_name_2
         )
         
 

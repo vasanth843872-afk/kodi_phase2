@@ -1189,39 +1189,39 @@ class FixedRelationAdminViewSet(BaseModelViewSet):
             relation = self.get_object()
             
             overrides = {
-                'language_religion': [],
-                'caste': [],
+                'language_lifestyle': [],
+                'family_name_1': [],
                 'family': []
             }
             
-            # Get language+religion overrides
+            # Get language+lifestyle overrides
             try:
-                lang_rel_overrides = RelationLanguageReligion.objects.filter(relation=relation)
+                lang_rel_overrides = RelationLanguagelifestyle.objects.filter(relation=relation)
                 for override in lang_rel_overrides:
-                    overrides['language_religion'].append({
+                    overrides['language_lifestyle'].append({
                         'id': override.id,
                         'language': override.language,
-                        'religion': override.religion,
+                        'lifestyle': override.lifestyle,
                         'label': override.label,
                         'created_at': override.created_at
                     })
             except Exception as e:
-                logger.error(f"Error fetching language+religion overrides: {str(e)}")
+                logger.error(f"Error fetching language+lifestyle overrides: {str(e)}")
             
-            # Get caste overrides
+            # Get family_name_1 overrides
             try:
-                caste_overrides = RelationCaste.objects.filter(relation=relation)
-                for override in caste_overrides:
-                    overrides['caste'].append({
+                family_name_1_overrides = Relationlifestyle.objects.filter(relation=relation)
+                for override in family_name_1_overrides:
+                    overrides['family_name_1'].append({
                         'id': override.id,
                         'language': override.language,
-                        'religion': override.religion,
-                        'caste': override.caste,
+                        'lifestyle': override.lifestyle,
+                        'family_name_1': override.family_name_1,
                         'label': override.label,
                         'created_at': override.created_at
                     })
             except Exception as e:
-                logger.error(f"Error fetching caste overrides: {str(e)}")
+                logger.error(f"Error fetching family_name_1 overrides: {str(e)}")
             
             # Get family overrides
             try:
@@ -1230,8 +1230,8 @@ class FixedRelationAdminViewSet(BaseModelViewSet):
                     overrides['family'].append({
                         'id': override.id,
                         'language': override.language,
-                        'religion': override.religion,
-                        'caste': override.caste,
+                        'lifestyle': override.lifestyle,
+                        'family_name_1': override.family_name_1,
                         'family': override.family,
                         'label': override.label,
                         'created_at': override.created_at
@@ -1263,8 +1263,8 @@ class RelationOverrideViewSet(BaseModelViewSet):
             relation_perm = RelationManagementPermission.objects.get(user=user)
             
             permission_map = {
-                'language_religion': 'can_manage_language_religion',
-                'caste': 'can_manage_caste_overrides',
+                'language_lifestyle': 'can_manage_language_lifestyle',
+                'family_name_1': 'can_manage_family_name_1_overrides',
                 'family': 'can_manage_family_overrides'
             }
             
@@ -1284,7 +1284,7 @@ class RelationOverrideViewSet(BaseModelViewSet):
         try:
             level = request.data.get('level')
             
-            if not level or level not in ['language_religion', 'caste', 'family']:
+            if not level or level not in ['language_lifestyle', 'family_name_1', 'family']:
                 return Response(
                     {'error': 'Invalid level specified'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -1298,8 +1298,8 @@ class RelationOverrideViewSet(BaseModelViewSet):
                 )
             
             serializer_class = {
-                'language_religion': LanguageReligionOverrideSerializer,
-                'caste': CasteOverrideSerializer,
+                'language_lifestyle': LanguagelifestyleOverrideSerializer,
+                'family_name_1': lifestyleOverrideSerializer,
                 'family': FamilyOverrideSerializer
             }[level]
             
@@ -1318,27 +1318,27 @@ class RelationOverrideViewSet(BaseModelViewSet):
                 
                 with transaction.atomic():
                     # Create the override based on level
-                    if level == 'language_religion':
-                        override, created = RelationLanguageReligion.objects.update_or_create(
+                    if level == 'language_lifestyle':
+                        override, created = RelationLanguagelifestyle.objects.update_or_create(
                             relation=relation,
                             language=data['language'],
-                            religion=data['religion'],
+                            lifestyle=data['lifestyle'],
                             defaults={'label': data['label']}
                         )
-                    elif level == 'caste':
-                        override, created = RelationCaste.objects.update_or_create(
+                    elif level == 'family_name_1':
+                        override, created = Relationlifestyle.objects.update_or_create(
                             relation=relation,
                             language=data['language'],
-                            religion=data['religion'],
-                            caste=data['caste'],
+                            lifestyle=data['lifestyle'],
+                            family_name_1=data['family_name_1'],
                             defaults={'label': data['label']}
                         )
                     else:  # family
                         override, created = RelationFamily.objects.update_or_create(
                             relation=relation,
                             language=data['language'],
-                            religion=data['religion'],
-                            caste=data['caste'],
+                            lifestyle=data['lifestyle'],
+                            family_name_1=data['family_name_1'],
                             family=data['family'],
                             defaults={'label': data['label']}
                         )
@@ -1355,7 +1355,7 @@ class RelationOverrideViewSet(BaseModelViewSet):
                             ip_address=self.get_client_ip(request),
                             metadata={
                                 'language': data['language'],
-                                'religion': data['religion'],
+                                'lifestyle': data['lifestyle'],
                                 'label': data['label'],
                                 'is_new': created
                             }
@@ -1419,27 +1419,27 @@ class RelationOverrideViewSet(BaseModelViewSet):
                                 continue
                             
                             # Create override based on level
-                            if level == 'language_religion':
-                                obj, created = RelationLanguageReligion.objects.update_or_create(
+                            if level == 'language_lifestyle':
+                                obj, created = RelationLanguagelifestyle.objects.update_or_create(
                                     relation=relation,
                                     language=override_data['language'],
-                                    religion=override_data['religion'],
+                                    lifestyle=override_data['lifestyle'],
                                     defaults={'label': override_data['label']}
                                 )
-                            elif level == 'caste':
-                                obj, created = RelationCaste.objects.update_or_create(
+                            elif level == 'family_name_1':
+                                obj, created = Relationlifestyle.objects.update_or_create(
                                     relation=relation,
                                     language=override_data['language'],
-                                    religion=override_data['religion'],
-                                    caste=override_data['caste'],
+                                    lifestyle=override_data['lifestyle'],
+                                    family_name_1=override_data['family_name_1'],
                                     defaults={'label': override_data['label']}
                                 )
                             else:  # family
                                 obj, created = RelationFamily.objects.update_or_create(
                                     relation=relation,
                                     language=override_data['language'],
-                                    religion=override_data['religion'],
-                                    caste=override_data['caste'],
+                                    lifestyle=override_data['lifestyle'],
+                                    family_name_1=override_data['family_name_1'],
                                     family=override_data['family'],
                                     defaults={'label': override_data['label']}
                                 )
@@ -1514,7 +1514,7 @@ class RelationOverrideViewSet(BaseModelViewSet):
             level = request.query_params.get('level')
             override_id = request.query_params.get('id')
             
-            if not level or level not in ['language_religion', 'caste', 'family']:
+            if not level or level not in ['language_lifestyle', 'family_name_1', 'family']:
                 return Response(
                     {'error': 'Invalid level specified'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -1535,8 +1535,8 @@ class RelationOverrideViewSet(BaseModelViewSet):
             
             # Get the model based on level
             model_map = {
-                'language_religion': RelationLanguageReligion,
-                'caste': RelationCaste,
+                'language_lifestyle': RelationLanguagelifestyle,
+                'family_name_1': Relationlifestyle,
                 'family': RelationFamily
             }
             
@@ -1586,69 +1586,69 @@ class RelationOverrideViewSet(BaseModelViewSet):
         try:
             level = request.query_params.get('level', 'all')
             language = request.query_params.get('language')
-            religion = request.query_params.get('religion')
-            caste = request.query_params.get('caste')
+            lifestyle = request.query_params.get('lifestyle')
+            family_name_1 = request.query_params.get('family_name_1')
             family = request.query_params.get('family')
             relation_code = request.query_params.get('relation_code')
             
             results = []
             
-            # Search language+religion overrides
-            if level in ['all', 'language_religion']:
+            # Search language+lifestyle overrides
+            if level in ['all', 'language_lifestyle']:
                 try:
-                    queryset = RelationLanguageReligion.objects.all()
+                    queryset = RelationLanguagelifestyle.objects.all()
                     
                     if language:
                         queryset = queryset.filter(language=language)
-                    if religion:
-                        queryset = queryset.filter(religion=religion)
+                    if lifestyle:
+                        queryset = queryset.filter(lifestyle=lifestyle)
                     if relation_code:
                         queryset = queryset.filter(relation__relation_code=relation_code)
                     
                     for item in queryset.select_related('relation'):
                         results.append({
                             'id': item.id,
-                            'level': 'language_religion',
+                            'level': 'language_lifestyle',
                             'relation_code': item.relation.relation_code,
                             'language': item.language,
-                            'religion': item.religion,
+                            'lifestyle': item.lifestyle,
                             'label': item.label,
                             'created_at': item.created_at,
                             'default_english': item.relation.default_english,
                             'default_tamil': item.relation.default_tamil
                         })
                 except Exception as e:
-                    logger.error(f"Error searching language+religion overrides: {str(e)}")
+                    logger.error(f"Error searching language+lifestyle overrides: {str(e)}")
             
-            # Search caste overrides
-            if level in ['all', 'caste']:
+            # Search family_name_1 overrides
+            if level in ['all', 'family_name_1']:
                 try:
-                    queryset = RelationCaste.objects.all()
+                    queryset = Relationlifestyle.objects.all()
                     
                     if language:
                         queryset = queryset.filter(language=language)
-                    if religion:
-                        queryset = queryset.filter(religion=religion)
-                    if caste:
-                        queryset = queryset.filter(caste=caste)
+                    if lifestyle:
+                        queryset = queryset.filter(lifestyle=lifestyle)
+                    if family_name_1:
+                        queryset = queryset.filter(family_name_1=family_name_1)
                     if relation_code:
                         queryset = queryset.filter(relation__relation_code=relation_code)
                     
                     for item in queryset.select_related('relation'):
                         results.append({
                             'id': item.id,
-                            'level': 'caste',
+                            'level': 'family_name_1',
                             'relation_code': item.relation.relation_code,
                             'language': item.language,
-                            'religion': item.religion,
-                            'caste': item.caste,
+                            'lifestyle': item.lifestyle,
+                            'family_name_1': item.family_name_1,
                             'label': item.label,
                             'created_at': item.created_at,
                             'default_english': item.relation.default_english,
                             'default_tamil': item.relation.default_tamil
                         })
                 except Exception as e:
-                    logger.error(f"Error searching caste overrides: {str(e)}")
+                    logger.error(f"Error searching family_name_1 overrides: {str(e)}")
             
             # Search family overrides
             if level in ['all', 'family']:
@@ -1657,10 +1657,10 @@ class RelationOverrideViewSet(BaseModelViewSet):
                     
                     if language:
                         queryset = queryset.filter(language=language)
-                    if religion:
-                        queryset = queryset.filter(religion=religion)
-                    if caste:
-                        queryset = queryset.filter(caste=caste)
+                    if lifestyle:
+                        queryset = queryset.filter(lifestyle=lifestyle)
+                    if family_name_1:
+                        queryset = queryset.filter(family_name_1=family_name_1)
                     if family:
                         queryset = queryset.filter(family=family)
                     if relation_code:
@@ -1672,8 +1672,8 @@ class RelationOverrideViewSet(BaseModelViewSet):
                             'level': 'family',
                             'relation_code': item.relation.relation_code,
                             'language': item.language,
-                            'religion': item.religion,
-                            'caste': item.caste,
+                            'lifestyle': item.lifestyle,
+                            'family_name_1': item.family_name_1,
                             'family': item.family,
                             'label': item.label,
                             'created_at': item.created_at,
@@ -1715,9 +1715,9 @@ class RelationLabelTestView(generics.GenericAPIView):
                     label_info = RelationLabelService.get_relation_label(
                         relation_code=data['relation_code'],
                         language=data['language'],
-                        religion=data['religion'],
-                        caste=data['caste'],
-                        family_name=data.get('family', '')
+                        lifestyle=data['lifestyle'],
+                        family_name_1=data['family_name_1'],
+                        family_name_2=data.get('family', '')
                     )
                 except Exception as e:
                     logger.error(f"Error getting relation label: {str(e)}")
@@ -1742,33 +1742,33 @@ class RelationLabelTestView(generics.GenericAPIView):
                         family_override = RelationFamily.objects.filter(
                             relation=relation,
                             language=data['language'],
-                            religion=data['religion'],
-                            caste=data['caste'],
+                            lifestyle=data['lifestyle'],
+                            family_name_1=data['family_name_1'],
                             family=data['family']
                         ).first()
                     except Exception as e:
                         logger.error(f"Error checking family override: {str(e)}")
                 
-                caste_override = None
+                family_name_1_override = None
                 try:
-                    caste_override = RelationCaste.objects.filter(
+                    family_name_1_override = Relationlifestyle.objects.filter(
                         relation=relation,
                         language=data['language'],
-                        religion=data['religion'],
-                        caste=data['caste']
+                        lifestyle=data['lifestyle'],
+                        family_name_1=data['family_name_1']
                     ).first()
                 except Exception as e:
-                    logger.error(f"Error checking caste override: {str(e)}")
+                    logger.error(f"Error checking family_name_1 override: {str(e)}")
                 
                 lang_rel_override = None
                 try:
-                    lang_rel_override = RelationLanguageReligion.objects.filter(
+                    lang_rel_override = RelationLanguagelifestyle.objects.filter(
                         relation=relation,
                         language=data['language'],
-                        religion=data['religion']
+                        lifestyle=data['lifestyle']
                     ).first()
                 except Exception as e:
-                    logger.error(f"Error checking language+religion override: {str(e)}")
+                    logger.error(f"Error checking language+lifestyle override: {str(e)}")
                 
                 # Prepare response
                 response_data = {
@@ -1781,11 +1781,11 @@ class RelationLabelTestView(generics.GenericAPIView):
                             'exists': family_override is not None,
                             'label': family_override.label if family_override else None
                         },
-                        'caste': {
-                            'exists': caste_override is not None,
-                            'label': caste_override.label if caste_override else None
+                        'family_name_1': {
+                            'exists': family_name_1_override is not None,
+                            'label': family_name_1_override.label if family_name_1_override else None
                         },
-                        'language_religion': {
+                        'language_lifestyle': {
                             'exists': lang_rel_override is not None,
                             'label': lang_rel_override.label if lang_rel_override else None
                         },
@@ -1796,11 +1796,11 @@ class RelationLabelTestView(generics.GenericAPIView):
                     },
                     'hierarchy_used': [
                         {'level': 'family', 'used': family_override is not None},
-                        {'level': 'caste', 'used': caste_override is not None and family_override is None},
-                        {'level': 'language_religion', 'used': lang_rel_override is not None and caste_override is None and family_override is None},
+                        {'level': 'family_name_1', 'used': family_name_1_override is not None and family_override is None},
+                        {'level': 'language_lifestyle', 'used': lang_rel_override is not None and family_name_1_override is None and family_override is None},
                         {'level': 'default', 'used': all([
                             family_override is None,
-                            caste_override is None,
+                            family_name_1_override is None,
                             lang_rel_override is None
                         ])}
                     ]
@@ -1844,14 +1844,14 @@ class RelationAnalyticsView(generics.GenericAPIView):
             # Calculate analytics
             total_relations = FixedRelation.objects.count()
             total_overrides = (
-                RelationLanguageReligion.objects.count() +
-                RelationCaste.objects.count() +
+                RelationLanguagelifestyle.objects.count() +
+                Relationlifestyle.objects.count() +
                 RelationFamily.objects.count()
             )
             
             overrides_by_level = {
-                'language_religion': RelationLanguageReligion.objects.count(),
-                'caste': RelationCaste.objects.count(),
+                'language_lifestyle': RelationLanguagelifestyle.objects.count(),
+                'family_name_1': Relationlifestyle.objects.count(),
                 'family': RelationFamily.objects.count()
             }
             
@@ -1859,7 +1859,7 @@ class RelationAnalyticsView(generics.GenericAPIView):
             most_overridden = []
             try:
                 relations = FixedRelation.objects.annotate(
-                    total_overrides=Count('family_labels') + Count('caste_labels') + Count('language_religion_labels')
+                    total_overrides=Count('family_labels') + Count('family_name_1_labels') + Count('language_lifestyle_labels')
                 ).order_by('-total_overrides')[:10]
                 
                 for relation in relations:
@@ -1869,8 +1869,8 @@ class RelationAnalyticsView(generics.GenericAPIView):
                         'total_overrides': relation.total_overrides,
                         'by_level': {
                             'family': relation.family_labels.count(),
-                            'caste': relation.caste_labels.count(),
-                            'language_religion': relation.language_religion_labels.count()
+                            'family_name_1': relation.family_name_1_labels.count(),
+                            'language_lifestyle': relation.language_lifestyle_labels.count()
                         }
                     })
             except Exception as e:
@@ -1919,8 +1919,8 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
     permission_classes = [AllowAny]
     
     @action(detail=False, methods=['get'])
-    def caste(self, request):
-        """Auto-suggest caste values (starts with query)."""
+    def family_name_1(self, request):
+        """Auto-suggest family_name_1 values (starts with query)."""
         try:
             query = request.query_params.get('q', '').strip().lower()
             limit = min(int(request.query_params.get('limit', 10)), 50)  # Cap at 50
@@ -1930,55 +1930,55 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
             
             suggestions = []
             
-            # Get distinct caste values that START with query
+            # Get distinct family_name_1 values that START with query
             try:
-                caste_results = RelationCaste.objects.filter(
-                    caste__istartswith=query
-                ).values('caste').annotate(
+                family_name_1_results = Relationlifestyle.objects.filter(
+                    family_name_1__istartswith=query
+                ).values('family_name_1').annotate(
                     count=Count('id'),
-                    religions=Count('religion', distinct=True)
-                ).order_by('-count', 'caste')[:limit]
+                    lifestyles=Count('lifestyle', distinct=True)
+                ).order_by('-count', 'family_name_1')[:limit]
                 
                 suggestions = [
                     {
-                        'value': item['caste'],
-                        'label': item['caste'],
+                        'value': item['family_name_1'],
+                        'label': item['family_name_1'],
                         'count': item['count'],
-                        'religions': item['religions']
+                        'lifestyles': item['lifestyles']
                     }
-                    for item in caste_results
+                    for item in family_name_1_results
                 ]
             except Exception as e:
-                logger.error(f"Error fetching caste suggestions (starts with): {str(e)}")
+                logger.error(f"Error fetching family_name_1 suggestions (starts with): {str(e)}")
             
             # If no results with "starts with", fall back to "contains"
             if not suggestions and len(query) >= 2:
                 try:
-                    caste_results = RelationCaste.objects.filter(
-                        caste__icontains=query
-                    ).values('caste').annotate(
+                    family_name_1_results = Relationlifestyle.objects.filter(
+                        family_name_1__icontains=query
+                    ).values('family_name_1').annotate(
                         count=Count('id'),
-                        religions=Count('religion', distinct=True)
-                    ).order_by('-count', 'caste')[:limit]
+                        lifestyles=Count('lifestyle', distinct=True)
+                    ).order_by('-count', 'family_name_1')[:limit]
                     
                     suggestions = [
                         {
-                            'value': item['caste'],
-                            'label': item['caste'],
+                            'value': item['family_name_1'],
+                            'label': item['family_name_1'],
                             'count': item['count'],
-                            'religions': item['religions']
+                            'lifestyles': item['lifestyles']
                         }
-                        for item in caste_results
+                        for item in family_name_1_results
                     ]
                 except Exception as e:
-                    logger.error(f"Error fetching caste suggestions (contains): {str(e)}")
+                    logger.error(f"Error fetching family_name_1 suggestions (contains): {str(e)}")
             
             return Response({
                 'query': query,
                 'suggestions': suggestions
             })
         except Exception as e:
-            logger.error(f"Error in caste auto-suggest: {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"Error in family_name_1 auto-suggest: {str(e)}\n{traceback.format_exc()}")
             return Response(
                 {'error': 'Failed to get suggestions. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -2000,7 +2000,7 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
             try:
                 family_results = RelationFamily.objects.filter(
                     family__istartswith=query
-                ).values('family', 'caste', 'religion').annotate(
+                ).values('family', 'family_name_1', 'lifestyle').annotate(
                     count=Count('id')
                 ).order_by('-count', 'family')[:limit]
                 
@@ -2008,8 +2008,8 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
                     {
                         'value': item['family'],
                         'label': item['family'],
-                        'caste': item['caste'],
-                        'religion': item['religion'],
+                        'family_name_1': item['family_name_1'],
+                        'lifestyle': item['lifestyle'],
                         'count': item['count']
                     }
                     for item in family_results
@@ -2022,7 +2022,7 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
                 try:
                     family_results = RelationFamily.objects.filter(
                         family__icontains=query
-                    ).values('family', 'caste', 'religion').annotate(
+                    ).values('family', 'family_name_1', 'lifestyle').annotate(
                         count=Count('id')
                     ).order_by('-count', 'family')[:limit]
                     
@@ -2030,8 +2030,8 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
                         {
                             'value': item['family'],
                             'label': item['family'],
-                            'caste': item['caste'],
-                            'religion': item['religion'],
+                            'family_name_1': item['family_name_1'],
+                            'lifestyle': item['lifestyle'],
                             'count': item['count']
                         }
                         for item in family_results
@@ -2079,8 +2079,8 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
                         'category': rel.get_category_display(),
                         'overrides': (
                             rel.family_labels.count() +
-                            rel.caste_labels.count() +
-                            rel.language_religion_labels.count()
+                            rel.family_name_1_labels.count() +
+                            rel.language_lifestyle_labels.count()
                         )
                     }
                     for rel in relation_results
@@ -2106,8 +2106,8 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
                             'category': rel.get_category_display(),
                             'overrides': (
                                 rel.family_labels.count() +
-                                rel.caste_labels.count() +
-                                rel.language_religion_labels.count()
+                                rel.family_name_1_labels.count() +
+                                rel.language_lifestyle_labels.count()
                             )
                         }
                         for rel in relation_results
@@ -2138,7 +2138,7 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
             if len(query) < 2:
                 # Return all languages if query is short
                 try:
-                    lang_list = RelationLanguageReligion.objects.values_list(
+                    lang_list = RelationLanguagelifestyle.objects.values_list(
                         'language', flat=True
                     ).distinct().order_by('language')[:limit]
                     
@@ -2148,7 +2148,7 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
             else:
                 # Filter by query (starts with)
                 try:
-                    lang_list = RelationLanguageReligion.objects.filter(
+                    lang_list = RelationLanguagelifestyle.objects.filter(
                         language__istartswith=query
                     ).values_list('language', flat=True).distinct().order_by('language')[:limit]
                     
@@ -2168,62 +2168,62 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
             )
     
     @action(detail=False, methods=['get'])
-    def religion(self, request):
-        """Auto-suggest religion values."""
+    def lifestyle(self, request):
+        """Auto-suggest lifestyle values."""
         try:
             query = request.query_params.get('q', '').strip().lower()
             limit = min(int(request.query_params.get('limit', 10)), 50)  # Cap at 50
             
             # Get from multiple sources
-            religion_set = set()
+            lifestyle_set = set()
             
-            # From language+religion overrides
+            # From language+lifestyle overrides
             try:
-                religions_lr = RelationLanguageReligion.objects.filter(
-                    religion__istartswith=query
-                ).values_list('religion', flat=True).distinct()
-                religion_set.update(religions_lr)
+                lifestyles_lr = RelationLanguagelifestyle.objects.filter(
+                    lifestyle__istartswith=query
+                ).values_list('lifestyle', flat=True).distinct()
+                lifestyle_set.update(lifestyles_lr)
             except Exception as e:
-                logger.error(f"Error fetching religions from language+religion: {str(e)}")
+                logger.error(f"Error fetching lifestyles from language+lifestyle: {str(e)}")
             
-            # From caste overrides
+            # From family_name_1 overrides
             try:
-                religions_caste = RelationCaste.objects.filter(
-                    religion__istartswith=query
-                ).values_list('religion', flat=True).distinct()
-                religion_set.update(religions_caste)
+                lifestyles_family_name_1 = Relationlifestyle.objects.filter(
+                    lifestyle__istartswith=query
+                ).values_list('lifestyle', flat=True).distinct()
+                lifestyle_set.update(lifestyles_family_name_1)
             except Exception as e:
-                logger.error(f"Error fetching religions from caste: {str(e)}")
+                logger.error(f"Error fetching lifestyles from family_name_1: {str(e)}")
             
             # If no results with "starts with", try "contains"
-            if not religion_set and len(query) >= 2:
+            if not lifestyle_set and len(query) >= 2:
                 try:
-                    religions_lr = RelationLanguageReligion.objects.filter(
-                        religion__icontains=query
-                    ).values_list('religion', flat=True).distinct()
-                    religion_set.update(religions_lr)
+                    lifestyles_lr = RelationLanguagelifestyle.objects.filter(
+                        lifestyle__icontains=query
+                    ).values_list('lifestyle', flat=True).distinct()
+                    lifestyle_set.update(lifestyles_lr)
                 except Exception as e:
-                    logger.error(f"Error fetching religions from language+religion (contains): {str(e)}")
+                    logger.error(f"Error fetching lifestyles from language+lifestyle (contains): {str(e)}")
                 
                 try:
-                    religions_caste = RelationCaste.objects.filter(
-                        religion__icontains=query
-                    ).values_list('religion', flat=True).distinct()
-                    religion_set.update(religions_caste)
+                    lifestyles_family_name_1 = Relationlifestyle.objects.filter(
+                        lifestyle__icontains=query
+                    ).values_list('lifestyle', flat=True).distinct()
+                    lifestyle_set.update(lifestyles_family_name_1)
                 except Exception as e:
-                    logger.error(f"Error fetching religions from caste (contains): {str(e)}")
+                    logger.error(f"Error fetching lifestyles from family_name_1 (contains): {str(e)}")
             
             # Sort alphabetically
-            sorted_religions = sorted(list(religion_set))[:limit]
+            sorted_lifestyles = sorted(list(lifestyle_set))[:limit]
             
-            results = [{'value': rel, 'label': rel} for rel in sorted_religions]
+            results = [{'value': rel, 'label': rel} for rel in sorted_lifestyles]
             
             return Response({
                 'query': query,
                 'suggestions': results
             })
         except Exception as e:
-            logger.error(f"Error in religion auto-suggest: {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"Error in lifestyle auto-suggest: {str(e)}\n{traceback.format_exc()}")
             return Response(
                 {'error': 'Failed to get suggestions. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -2233,14 +2233,14 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
     def all_fields(self, request):
         """Get all distinct values for dropdowns (no query needed)."""
         try:
-            # Caste values
-            castes = []
+            # lifestyle values
+            family_name_1s = []
             try:
-                castes = list(RelationCaste.objects.values_list(
-                    'caste', flat=True
-                ).distinct().order_by('caste'))
+                family_name_1s = list(Relationlifestyle.objects.values_list(
+                    'family_name_1', flat=True
+                ).distinct().order_by('family_name_1'))
             except Exception as e:
-                logger.error(f"Error fetching castes: {str(e)}")
+                logger.error(f"Error fetching family_name_1s: {str(e)}")
             
             # Family values
             families = []
@@ -2254,38 +2254,38 @@ class RelationAutoSuggestViewSet(BaseModelViewSet):
             # Languages
             languages = []
             try:
-                languages = list(RelationLanguageReligion.objects.values_list(
+                languages = list(RelationLanguagelifestyle.objects.values_list(
                     'language', flat=True
                 ).distinct().order_by('language'))
             except Exception as e:
                 logger.error(f"Error fetching languages: {str(e)}")
             
-            # Religions (combined)
-            all_religions = set()
+            # lifestyles (combined)
+            all_lifestyles = set()
             try:
-                religions_lr = RelationLanguageReligion.objects.values_list(
-                    'religion', flat=True
+                lifestyles_lr = RelationLanguagelifestyle.objects.values_list(
+                    'lifestyle', flat=True
                 ).distinct()
-                all_religions.update(religions_lr)
+                all_lifestyles.update(lifestyles_lr)
             except Exception as e:
-                logger.error(f"Error fetching religions from language+religion: {str(e)}")
+                logger.error(f"Error fetching lifestyles from language+lifestyle: {str(e)}")
             
             try:
-                religions_caste = RelationCaste.objects.values_list(
-                    'religion', flat=True
+                lifestyles_family_name_1 = Relationlifestyle.objects.values_list(
+                    'lifestyle', flat=True
                 ).distinct()
-                all_religions.update(religions_caste)
+                all_lifestyles.update(lifestyles_family_name_1)
             except Exception as e:
-                logger.error(f"Error fetching religions from caste: {str(e)}")
+                logger.error(f"Error fetching lifestyles from family_name_1: {str(e)}")
             
             # Relation categories
             categories = dict(FixedRelation.RELATION_CATEGORIES)
             
             return Response({
-                'castes': castes,
+                'family_name_1s': family_name_1s,
                 'families': families,
                 'languages': languages,
-                'religions': sorted(list(all_religions)),
+                'lifestyles': sorted(list(all_lifestyles)),
                 'categories': categories
             })
         except Exception as e:
@@ -3082,8 +3082,8 @@ class ProfileOverrideViewSet(BaseModelViewSet):
                 override_kwargs = {
                     'relation': relation,
                     'language': data.get('language', 'en'),
-                    'religion': data.get('religion'),
-                    'caste': data.get('caste'),
+                    'lifestyle': data.get('lifestyle'),
+                    'family_name_1': data.get('family_name_1'),
                     'family': data.get('family'),
                     'native': data.get('native'),
                     'present_city': data.get('present_city'),
@@ -3158,8 +3158,8 @@ class ProfileOverrideViewSet(BaseModelViewSet):
             
             # Count by field combinations
             by_level = {
-                'with_religion': RelationProfileOverride.objects.exclude(religion__isnull=True).exclude(religion='').count(),
-                'with_caste': RelationProfileOverride.objects.exclude(caste__isnull=True).exclude(caste='').count(),
+                'with_lifestyle': RelationProfileOverride.objects.exclude(lifestyle__isnull=True).exclude(lifestyle='').count(),
+                'with_family_name_1': RelationProfileOverride.objects.exclude(family_name_1__isnull=True).exclude(family_name_1='').count(),
                 'with_family': RelationProfileOverride.objects.exclude(family__isnull=True).exclude(family='').count(),
                 'with_native': RelationProfileOverride.objects.exclude(native__isnull=True).exclude(native='').count(),
                 'with_city': RelationProfileOverride.objects.exclude(present_city__isnull=True).exclude(present_city='').count(),
@@ -3190,8 +3190,8 @@ class ProfileOverrideViewSet(BaseModelViewSet):
                         'relation_code': override.relation.relation_code,
                         'fields_used': score,
                         'fields': {
-                            'religion': override.religion,
-                            'caste': override.caste,
+                            'lifestyle': override.lifestyle,
+                            'family_name_1': override.family_name_1,
                             'family': override.family,
                             'native': override.native,
                             'city': override.present_city,
@@ -3251,8 +3251,8 @@ class ProfileOverrideViewSet(BaseModelViewSet):
             # Build query from profile fields
             query = Q()
             field_mapping = {
-                'religion': profile.religion,
-                'caste': profile.caste,
+                'lifestyle': profile.lifestyle,
+                'family_name_1': profile.family_name_1,
                 'family': profile.familyname1,  # Adjust as needed
                 'native': profile.native,
                 'present_city': profile.present_city,
@@ -3285,8 +3285,8 @@ class ProfileOverrideViewSet(BaseModelViewSet):
     def _get_field_summary(self, data):
         """Generate a summary of which fields are set in the override."""
         fields = []
-        if data.get('religion'): fields.append('religion')
-        if data.get('caste'): fields.append('caste')
+        if data.get('lifestyle'): fields.append('lifestyle')
+        if data.get('family_name_1'): fields.append('family_name_1')
         if data.get('family'): fields.append('family')
         if data.get('native'): fields.append('native')
         if data.get('present_city'): fields.append('city')
@@ -3314,8 +3314,8 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             return None
     
     @action(detail=False, methods=['get'])
-    def user_castes(self, request):
-        """Suggest caste values based on what users have entered in their profiles."""
+    def user_family_name_1s(self, request):
+        """Suggest family_name_1 values based on what users have entered in their profiles."""
         try:
             query = request.query_params.get('q', '').strip().lower()
             limit = min(int(request.query_params.get('limit', 10)), 50)
@@ -3327,79 +3327,79 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             UserProfile = self._get_user_profile_model()
             
             if UserProfile:
-                # Get distinct caste values from user profiles (starts with)
+                # Get distinct family_name_1 values from user profiles (starts with)
                 try:
                     # Use user_id or user as the count field instead of id
-                    caste_results = UserProfile.objects.filter(
-                        caste__isnull=False
+                    family_name_1_results = UserProfile.objects.filter(
+                        family_name_1__isnull=False
                     ).exclude(
-                        caste__exact=''
+                        family_name_1__exact=''
                     ).filter(
-                        caste__istartswith=query
-                    ).values('caste').annotate(
+                        family_name_1__istartswith=query
+                    ).values('family_name_1').annotate(
                         count=Count('user')  # Changed from 'id' to 'user'
-                    ).order_by('-count', 'caste')[:limit]
+                    ).order_by('-count', 'family_name_1')[:limit]
                     
                     suggestions = [
                         {
-                            'value': item['caste'],
-                            'label': item['caste'],
+                            'value': item['family_name_1'],
+                            'label': item['family_name_1'],
                             'count': item['count'],
                             'source': 'user_entered'
                         }
-                        for item in caste_results
+                        for item in family_name_1_results
                     ]
                 except Exception as e:
-                    logger.error(f"Error fetching user caste suggestions (starts with): {str(e)}")
+                    logger.error(f"Error fetching user family_name_1 suggestions (starts with): {str(e)}")
                 
                 # Fallback to contains if no results
                 if not suggestions and len(query) >= 2:
                     try:
-                        caste_results = UserProfile.objects.filter(
-                            caste__isnull=False
+                        family_name_1_results = UserProfile.objects.filter(
+                            family_name_1__isnull=False
                         ).exclude(
-                            caste__exact=''
+                            family_name_1__exact=''
                         ).filter(
-                            caste__icontains=query
-                        ).values('caste').annotate(
+                            family_name_1__icontains=query
+                        ).values('family_name_1').annotate(
                             count=Count('user')  # Changed from 'id' to 'user'
-                        ).order_by('-count', 'caste')[:limit]
+                        ).order_by('-count', 'family_name_1')[:limit]
                         
                         suggestions = [
                             {
-                                'value': item['caste'],
-                                'label': item['caste'],
+                                'value': item['family_name_1'],
+                                'label': item['family_name_1'],
                                 'count': item['count'],
                                 'source': 'user_entered'
                             }
-                            for item in caste_results
+                            for item in family_name_1_results
                         ]
                     except Exception as e:
-                        logger.error(f"Error fetching user caste suggestions (contains): {str(e)}")
+                        logger.error(f"Error fetching user family_name_1 suggestions (contains): {str(e)}")
             
             # Also get from RelationProfileOverride if available
             try:
                 # For RelationProfileOverride, it likely has an 'id' field
                 override_results = RelationProfileOverride.objects.filter(
-                    caste__isnull=False
+                    family_name_1__isnull=False
                 ).exclude(
-                    caste__exact=''
+                    family_name_1__exact=''
                 ).filter(
-                    caste__istartswith=query
-                ).values('caste').annotate(
+                    family_name_1__istartswith=query
+                ).values('family_name_1').annotate(
                     count=Count('id')  # This is fine for this model
-                ).order_by('-count', 'caste')[:limit]
+                ).order_by('-count', 'family_name_1')[:limit]
                 
                 for item in override_results:
-                    if not any(s['value'] == item['caste'] for s in suggestions):
+                    if not any(s['value'] == item['family_name_1'] for s in suggestions):
                         suggestions.append({
-                            'value': item['caste'],
-                            'label': item['caste'],
+                            'value': item['family_name_1'],
+                            'label': item['family_name_1'],
                             'count': item['count'],
                             'source': 'override'
                         })
             except Exception as e:
-                logger.error(f"Error fetching override caste suggestions: {str(e)}")
+                logger.error(f"Error fetching override family_name_1 suggestions: {str(e)}")
             
             # Sort by count (highest first) then alphabetically
             suggestions.sort(key=lambda x: (-x['count'], x['value']))
@@ -3411,7 +3411,7 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             })
             
         except Exception as e:
-            logger.error(f"Error in user_castes: {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"Error in user_family_name_1s: {str(e)}\n{traceback.format_exc()}")
             return Response(
                 {'error': 'Failed to get suggestions. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -3432,7 +3432,7 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             
             if UserProfile:
                 # Try different possible family field names
-                family_fields = ['familyname1', 'family_name', 'family']
+                family_fields = ['familyname1', 'family_name_2', 'family']
                 
                 for field in family_fields:
                     try:
@@ -3581,8 +3581,8 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             )
     
     @action(detail=False, methods=['get'])
-    def user_religions(self, request):
-        """Suggest religion values based on what users have entered."""
+    def user_lifestyles(self, request):
+        """Suggest lifestyle values based on what users have entered."""
         try:
             query = request.query_params.get('q', '').strip().lower()
             limit = min(int(request.query_params.get('limit', 10)), 50)
@@ -3595,50 +3595,50 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             
             if UserProfile:
                 try:
-                    religion_results = UserProfile.objects.filter(
-                        religion__isnull=False
+                    lifestyle_results = UserProfile.objects.filter(
+                        lifestyle__isnull=False
                     ).exclude(
-                        religion__exact=''
+                        lifestyle__exact=''
                     ).filter(
-                        religion__istartswith=query
-                    ).values('religion').annotate(
+                        lifestyle__istartswith=query
+                    ).values('lifestyle').annotate(
                         count=Count('id')
-                    ).order_by('-count', 'religion')[:limit]
+                    ).order_by('-count', 'lifestyle')[:limit]
                     
                     suggestions = [
                         {
-                            'value': item['religion'],
-                            'label': item['religion'],
+                            'value': item['lifestyle'],
+                            'label': item['lifestyle'],
                             'count': item['count'],
                             'source': 'user_entered'
                         }
-                        for item in religion_results
+                        for item in lifestyle_results
                     ]
                 except Exception as e:
-                    logger.error(f"Error fetching user religion suggestions: {str(e)}")
+                    logger.error(f"Error fetching user lifestyle suggestions: {str(e)}")
             
             # Get from RelationProfileOverride
             try:
                 override_results = RelationProfileOverride.objects.filter(
-                    religion__isnull=False
+                    lifestyle__isnull=False
                 ).exclude(
-                    religion__exact=''
+                    lifestyle__exact=''
                 ).filter(
-                    religion__istartswith=query
-                ).values('religion').annotate(
+                    lifestyle__istartswith=query
+                ).values('lifestyle').annotate(
                     count=Count('id')
-                ).order_by('-count', 'religion')[:limit]
+                ).order_by('-count', 'lifestyle')[:limit]
                 
                 for item in override_results:
-                    if not any(s['value'] == item['religion'] for s in suggestions):
+                    if not any(s['value'] == item['lifestyle'] for s in suggestions):
                         suggestions.append({
-                            'value': item['religion'],
-                            'label': item['religion'],
+                            'value': item['lifestyle'],
+                            'label': item['lifestyle'],
                             'count': item['count'],
                             'source': 'override'
                         })
             except Exception as e:
-                logger.error(f"Error fetching override religion suggestions: {str(e)}")
+                logger.error(f"Error fetching override lifestyle suggestions: {str(e)}")
             
             suggestions.sort(key=lambda x: (-x['count'], x['value']))
             
@@ -3649,7 +3649,7 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             })
             
         except Exception as e:
-            logger.error(f"Error in user_religions: {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"Error in user_lifestyles: {str(e)}\n{traceback.format_exc()}")
             return Response(
                 {'error': 'Failed to get suggestions. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -3808,7 +3808,7 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
     def combined_suggestions(self, request):
         """Get combined suggestions from both admin and user data."""
         try:
-            field = request.query_params.get('field', 'caste')
+            field = request.query_params.get('field', 'family_name_1')
             query = request.query_params.get('q', '').strip().lower()
             limit = min(int(request.query_params.get('limit', 20)), 100)
             
@@ -3819,52 +3819,52 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             user_suggestions = []
             
             # Get admin suggestions (from existing RelationAutoSuggestViewSet methods)
-            if field == 'caste':
+            if field == 'family_name_1':
                 try:
-                    caste_results = RelationCaste.objects.filter(
-                        caste__istartswith=query
-                    ).values('caste').annotate(
+                    family_name_1_results = Relationlifestyle.objects.filter(
+                        family_name_1__istartswith=query
+                    ).values('family_name_1').annotate(
                         count=Count('id')
-                    ).order_by('-count', 'caste')[:limit//2]
+                    ).order_by('-count', 'family_name_1')[:limit//2]
                     
                     admin_suggestions = [
                         {
-                            'value': item['caste'],
-                            'label': item['caste'],
+                            'value': item['family_name_1'],
+                            'label': item['family_name_1'],
                             'count': item['count'],
                             'source': 'admin'
                         }
-                        for item in caste_results
+                        for item in family_name_1_results
                     ]
                 except Exception as e:
-                    logger.error(f"Error fetching admin caste suggestions: {str(e)}")
+                    logger.error(f"Error fetching admin family_name_1 suggestions: {str(e)}")
             
             # Get user suggestions
-            if field == 'caste':
+            if field == 'family_name_1':
                 UserProfile = self._get_user_profile_model()
                 if UserProfile:
                     try:
                         user_results = UserProfile.objects.filter(
-                            caste__isnull=False
+                            family_name_1__isnull=False
                         ).exclude(
-                            caste__exact=''
+                            family_name_1__exact=''
                         ).filter(
-                            caste__istartswith=query
-                        ).values('caste').annotate(
+                            family_name_1__istartswith=query
+                        ).values('family_name_1').annotate(
                             count=Count('id')
-                        ).order_by('-count', 'caste')[:limit//2]
+                        ).order_by('-count', 'family_name_1')[:limit//2]
                         
                         user_suggestions = [
                             {
-                                'value': item['caste'],
-                                'label': item['caste'],
+                                'value': item['family_name_1'],
+                                'label': item['family_name_1'],
                                 'count': item['count'],
                                 'source': 'user'
                             }
                             for item in user_results
                         ]
                     except Exception as e:
-                        logger.error(f"Error fetching user caste suggestions: {str(e)}")
+                        logger.error(f"Error fetching user family_name_1 suggestions: {str(e)}")
             
             # Merge and sort
             all_suggestions = admin_suggestions + user_suggestions
@@ -3900,7 +3900,7 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
     def popular_values(self, request):
         """Get most popular values entered by users."""
         try:
-            field = request.query_params.get('field', 'caste')
+            field = request.query_params.get('field', 'family_name_1')
             limit = min(int(request.query_params.get('limit', 20)), 50)
             
             popular = []
@@ -3908,8 +3908,8 @@ class UserEnteredAutoSuggestViewSet(BaseModelViewSet):
             
             if UserProfile:
                 field_mapping = {
-                    'caste': 'caste',
-                    'religion': 'religion',
+                    'family_name_1': 'family_name_1',
+                    'lifestyle': 'lifestyle',
                     'language': 'preferred_language',
                     'city': 'present_city',
                     'native': 'native'
@@ -3970,8 +3970,8 @@ class PermissionListView(BaseAPIView):
             ],
             'relation_permissions': [
                 {'id': 'can_manage_fixed_relations', 'name': 'Manage Fixed Relations', 'group': 'Relations'},
-                {'id': 'can_manage_language_religion', 'name': 'Manage Language/Religion Overrides', 'group': 'Relations'},
-                {'id': 'can_manage_caste_overrides', 'name': 'Manage Caste Overrides', 'group': 'Relations'},
+                {'id': 'can_manage_language_lifestyle', 'name': 'Manage Language/lifestyle Overrides', 'group': 'Relations'},
+                {'id': 'can_manage_family_name_1_overrides', 'name': 'Manage lifestyle Overrides', 'group': 'Relations'},
                 {'id': 'can_manage_family_overrides', 'name': 'Manage Family Overrides', 'group': 'Relations'},
                 {'id': 'can_manage_profile_overrides', 'name': 'Manage Profile Overrides', 'group': 'Relations'},
                 {'id': 'can_view_relation_analytics', 'name': 'View Relation Analytics', 'group': 'Analytics'},
@@ -4014,8 +4014,8 @@ class CurrentUserPermissionsView(BaseAPIView):
             relation_perm = RelationManagementPermission.objects.get(user=user)
             permissions['permissions']['relations'] = {
                 'can_manage_fixed_relations': relation_perm.can_manage_fixed_relations,
-                'can_manage_language_religion': relation_perm.can_manage_language_religion,
-                'can_manage_caste_overrides': relation_perm.can_manage_caste_overrides,
+                'can_manage_language_lifestyle': relation_perm.can_manage_language_lifestyle,
+                'can_manage_family_name_1_overrides': relation_perm.can_manage_family_name_1_overrides,
                 'can_manage_family_overrides': relation_perm.can_manage_family_overrides,
                 'can_manage_profile_overrides': relation_perm.can_manage_profile_overrides,
                 'can_view_relation_analytics': relation_perm.can_view_relation_analytics,
@@ -4055,8 +4055,8 @@ class StaffPermissionUpdateView(BaseAPIView):
                 relation_perm, created = RelationManagementPermission.objects.get_or_create(
                     user=staff_user
                 )
-                for field in ['can_manage_fixed_relations', 'can_manage_language_religion',
-                             'can_manage_caste_overrides', 'can_manage_family_overrides',
+                for field in ['can_manage_fixed_relations', 'can_manage_language_lifestyle',
+                             'can_manage_family_name_1_overrides', 'can_manage_family_overrides',
                              'can_manage_profile_overrides', 'can_view_relation_analytics']:
                     if field in request.data['relation_permissions']:
                         setattr(relation_perm, field, request.data['relation_permissions'][field])
@@ -4131,8 +4131,8 @@ class StaffPermissionsManageView(BaseAPIView):
                     
                     # Relation permissions (if they exist)
                     'can_manage_fixed_relations': relation_perm.can_manage_fixed_relations if relation_perm else False,
-                    'can_manage_language_religion': relation_perm.can_manage_language_religion if relation_perm else False,
-                    'can_manage_caste_overrides': relation_perm.can_manage_caste_overrides if relation_perm else False,
+                    'can_manage_language_lifestyle': relation_perm.can_manage_language_lifestyle if relation_perm else False,
+                    'can_manage_family_name_1_overrides': relation_perm.can_manage_family_name_1_overrides if relation_perm else False,
                     'can_manage_family_overrides': relation_perm.can_manage_family_overrides if relation_perm else False,
                     'can_manage_profile_overrides': relation_perm.can_manage_profile_overrides if relation_perm else False,
                     'can_view_relation_analytics': relation_perm.can_view_relation_analytics if relation_perm else False,
@@ -4188,8 +4188,8 @@ class StaffPermissionsManageView(BaseAPIView):
             staff_perm.save()
             
             # Update relation permissions if provided
-            relation_fields = ['can_manage_fixed_relations', 'can_manage_language_religion',
-                              'can_manage_caste_overrides', 'can_manage_family_overrides',
+            relation_fields = ['can_manage_fixed_relations', 'can_manage_language_lifestyle',
+                              'can_manage_family_name_1_overrides', 'can_manage_family_overrides',
                               'can_manage_profile_overrides', 'can_view_relation_analytics']
             
             relation_fields_in_request = [f for f in relation_fields if f in request.data]
@@ -4250,8 +4250,8 @@ class PermissionTemplatesView(BaseAPIView):
                     'can_edit_users': False,
                     'can_export_data': True,
                     'can_manage_fixed_relations': False,
-                    'can_manage_language_religion': False,
-                    'can_manage_caste_overrides': False,
+                    'can_manage_language_lifestyle': False,
+                    'can_manage_family_name_1_overrides': False,
                     'can_manage_family_overrides': False,
                     'can_manage_profile_overrides': False,
                     'can_view_relation_analytics': True,
@@ -4267,8 +4267,8 @@ class PermissionTemplatesView(BaseAPIView):
                     'can_edit_users': True,
                     'can_export_data': True,
                     'can_manage_fixed_relations': False,
-                    'can_manage_language_religion': True,
-                    'can_manage_caste_overrides': True,
+                    'can_manage_language_lifestyle': True,
+                    'can_manage_family_name_1_overrides': True,
                     'can_manage_family_overrides': True,
                     'can_manage_profile_overrides': True,
                     'can_view_relation_analytics': True,
@@ -4284,8 +4284,8 @@ class PermissionTemplatesView(BaseAPIView):
                     'can_edit_users': True,
                     'can_export_data': True,
                     'can_manage_fixed_relations': True,
-                    'can_manage_language_religion': True,
-                    'can_manage_caste_overrides': True,
+                    'can_manage_language_lifestyle': True,
+                    'can_manage_family_name_1_overrides': True,
                     'can_manage_family_overrides': True,
                     'can_manage_profile_overrides': True,
                     'can_view_relation_analytics': True,

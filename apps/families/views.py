@@ -54,7 +54,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
             # TODO: Send SMS notification
             # sms_service.send_invitation(
             #     invitation.invitee_mobile,
-            #     family.family_name,
+            #     family.family_name_2,
             #     invitation.inviter.mobile_number
             # )
             
@@ -104,7 +104,7 @@ class FamilyViewSet(viewsets.ModelViewSet):
                 return Response({
                     'message': 'Successfully joined family',
                     'family_id': invitation.family.id,
-                    'family_name': invitation.family.family_name
+                    'family_name_2': invitation.family.family_name_2
                 })
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

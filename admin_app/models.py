@@ -121,8 +121,8 @@ class RelationManagementPermission(models.Model):
     
     # Relation management permissions
     can_manage_fixed_relations = models.BooleanField(default=False)
-    can_manage_language_religion = models.BooleanField(default=False)
-    can_manage_caste_overrides = models.BooleanField(default=False)
+    can_manage_language_lifestyle = models.BooleanField(default=False)
+    can_manage_lifestyle_overrides = models.BooleanField(default=False)
     can_manage_family_overrides = models.BooleanField(default=False)
     can_manage_profile_overrides = models.BooleanField(default=False)
     
@@ -183,8 +183,8 @@ def create_default_relation_permissions(sender, instance, created, **kwargs):
                 RelationManagementPermission.objects.create(
                     user=instance,
                     can_manage_fixed_relations=True,
-                    can_manage_language_religion=True,
-                    can_manage_caste_overrides=True,
+                    can_manage_language_lifestyle=True,
+                    can_manage_lifestyle_overrides=True,
                     can_manage_family_overrides=True,
                     can_export_relation_data=True
                 )
@@ -192,8 +192,8 @@ def create_default_relation_permissions(sender, instance, created, **kwargs):
                 # Staff get limited permissions
                 RelationManagementPermission.objects.create(
                     user=instance,
-                    can_manage_language_religion=staff_perm.can_create_content,
-                    can_manage_caste_overrides=staff_perm.can_edit_content,
+                    can_manage_language_lifestyle=staff_perm.can_create_content,
+                    can_manage_lifestyle_overrides=staff_perm.can_edit_content,
                     can_manage_family_overrides=False  # Typically only admins manage family overrides
                 )
         except StaffPermission.DoesNotExist:

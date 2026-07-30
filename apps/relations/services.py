@@ -13,8 +13,8 @@ from datetime import datetime
 from .models import (
     FixedRelation,
     RelationFamily,
-    RelationCaste,
-    RelationLanguageReligion,
+    RelationFamilyName1,
+    RelationLanguageLifestyle,
     RelationProfileOverride
 )
 

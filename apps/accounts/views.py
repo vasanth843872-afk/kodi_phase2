@@ -127,7 +127,7 @@ class RequestOTPView(APIView):
                         if not person_exists:
                             try:
                                 family = Family.objects.create(
-                                    family_name=f"{user.mobile_number}'s Family",
+                                    family_name_2=f"{user.mobile_number}'s Family",
                                     created_by=user,
                                     description="My family tree"
                                 )
@@ -713,7 +713,7 @@ class SmartLoginView(APIView):
                 from apps.genealogy.models import Person
                 
                 Family.objects.create(
-                    family_name=f"{user.mobile_number}'s Family",
+                    family_name_2=f"{user.mobile_number}'s Family",
                     created_by=user,
                     description="My family tree"
                 )

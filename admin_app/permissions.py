@@ -62,13 +62,13 @@ class CanManageFixedRelations(HasRelationPermission):
     def __init__(self):
         super().__init__('can_manage_fixed_relations')
 
-class CanManageLanguageReligion(HasRelationPermission):
+class CanManageLanguagelifestyle(HasRelationPermission):
     def __init__(self):
-        super().__init__('can_manage_language_religion')
+        super().__init__('can_manage_language_lifestyle')
 
-class CanManageCasteOverrides(HasRelationPermission):
+class CanManagelifestyleOverrides(HasRelationPermission):
     def __init__(self):
-        super().__init__('can_manage_caste_overrides')
+        super().__init__('can_manage_lifestyle_overrides')
 
 class CanManageFamilyOverrides(HasRelationPermission):
     def __init__(self):

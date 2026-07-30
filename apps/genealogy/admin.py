@@ -5,7 +5,7 @@ class PersonAdmin(admin.ModelAdmin):
     """Admin for Person model."""
     list_display = ('full_name', 'gender', 'family', 'linked_user', 'is_alive', 'is_verified', 'created_at')
     list_filter = ('gender', 'is_alive', 'is_verified', 'family', 'created_at')
-    search_fields = ('full_name', 'family__family_name', 'linked_user__mobile_number')
+    search_fields = ('full_name', 'family__family_name_2', 'linked_user__mobile_number')
     readonly_fields = ('created_at', 'updated_at')
     raw_id_fields = ('linked_user', 'family')
     fieldsets = (
