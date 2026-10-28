@@ -2,12 +2,11 @@
 import os
 from pathlib import Path
 from datetime import timedelta
-from decouple import config
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config('SECRET_KEY', default='your-secret-key-here')
+SECRET_KEY = 'your-secret-key-here'
 
 DEBUG = True
 
@@ -96,7 +95,7 @@ ASGI_APPLICATION = 'kodi_core.asgi.application'
 
 DATABASES = {
     'default': dj_database_url.parse(
-'postgresql://django_3rsz_user:QzgFY0n5nF2j8l06QHRzNQDWkesw7JnP@dpg-d9llnnid0e5s73cptrig-a.oregon-postgres.render.com/django_3rsz')
+'postgresql://kodi_db_uvjc_user:rpWa3d6qBdQ3nIcf7T76w98FssXgAwYh@dpg-dbgufmgm7kps73eqv4kg-a.oregon-postgres.render.com/kodi_db_uvjc')
 }
     # Password validation
 AUTH_PASSWORD_VALIDATORS = [
